@@ -1662,12 +1662,6 @@ CONFIG_CU_DIAGNOSTICS_COLOR_ALWAYS=y
 # end of CMake Utilities
 
 #
-# TinyUSB soucre
-#
-# CONFIG_USING_SYNOPSYS_DWC2_DRIVER is not set
-# end of TinyUSB soucre
-
-#
 # ESP-NOW Configuration
 #
 
@@ -1743,6 +1737,13 @@ CONFIG_ESPNOW_DEBUG_CONSOLE_UART_NUM_0=y
 CONFIG_ESPNOW_DEBUG_CONSOLE_UART_NUM=0
 # end of ESP-NOW Debug Configuration
 # end of ESP-NOW Configuration
+
+#
+# TinyUSB soucre
+#
+# CONFIG_TINYUSB_SOURCE_CODE_ONLY is not set
+# CONFIG_USING_SYNOPSYS_DWC2_DRIVER is not set
+# end of TinyUSB soucre
 # end of Component config
 
 #

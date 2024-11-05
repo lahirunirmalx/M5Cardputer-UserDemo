@@ -72,9 +72,6 @@ namespace HAL
         // Override
         virtual std::string type() { return "null"; }
         virtual void init() {}
-            // Override
-            virtual std::string type() { return "null"; }
-            virtual void init() {}
 
         virtual void playLastSound() {}
         virtual void playNextSound() {}
@@ -82,4 +79,4 @@ namespace HAL
 
         virtual uint8_t getBatLevel() { return 100; }
     };
-} // namespace HAL
+} 

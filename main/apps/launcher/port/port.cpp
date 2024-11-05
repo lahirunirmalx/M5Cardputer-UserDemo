@@ -2,13 +2,10 @@
  * @file port.cpp
  * @author Forairaaaaa
  * @brief
- * @brief
  * @version 0.1
  * @date 2023-09-18
  *
- *
  * @copyright Copyright (c) 2023
- *
  *
  */
 #include "../launcher.h"
@@ -20,7 +17,9 @@
 
 // #define NO_BOOT_PLAY_STUFF
 
+
 using namespace MOONCAKE::APPS;
+
 
 void Launcher::_port_wait_enter()
 {
@@ -51,6 +50,7 @@ void Launcher::_port_wait_enter()
     while (_data.hal->keyboard()->keyList().size())
         _data.hal->keyboard()->updateKeyList();
 
+
     while (1)
     {
         _data.hal->keyboard()->updateKeyList();
@@ -74,6 +74,7 @@ void Launcher::_port_wait_enter()
     //     _data.hal->Speaker()->playWav(boot_sound_1, sizeof(boot_sound_1));
 }
 
+
 bool Launcher::_port_check_next_pressed()
 {
     if (_data.hal->keyboard()->isKeyPressing(55) || _data.hal->keyboard()->isKeyPressing(54))
@@ -93,6 +94,7 @@ bool Launcher::_port_check_next_pressed()
 
     return false;
 }
+
 
 bool Launcher::_port_check_last_pressed()
 {
@@ -114,14 +116,15 @@ bool Launcher::_port_check_last_pressed()
     return false;
 }
 
-bool Launcher::_port_check_enter_pressed()
+
+bool Launcher::_port_check_key_pressed(int keynum)
 {
     if (_data.hal->keyboard()->isKeyPressing(keynum))
     {
         // _data.hal->playNextSound();
 
         // Hold till release
-        while (_data.hal->keyboard()->isKeyPressing(42))
+        while (_data.hal->keyboard()->isKeyPressing(keynum))
         {
             _data.menu->update(millis());
             _data.hal->canvas_update();
@@ -134,6 +137,7 @@ bool Launcher::_port_check_enter_pressed()
     return false;
 }
 
+
 static int _last_key_num = 0;
 static bool _last_caps_lock_state = false;
 static uint32_t _last_caps_lock_click_time = 0;
@@ -145,10 +149,9 @@ void Launcher::_port_update_keyboard_state()
     _data.hal->keyboard()->updateKeyList();
     _data.hal->keyboard()->updateKeysState();
 
-    // Check double clicked lock shit
+    // Check double clicked lock stuff
     // If (last 1 && now 0), a clicked
-    // spdlog::info("{} {} {}", _last_caps_lock_state, _data.hal->keyboard()->keysState().shift, _last_caps_lock_state &&
-    // !_data.hal->keyboard()->keysState().shift);
+    // spdlog::info("{} {} {}", _last_caps_lock_state, _data.hal->keyboard()->keysState().shift, _last_caps_lock_state && !_data.hal->keyboard()->keysState().shift);
     if (_last_caps_lock_state && !_data.hal->keyboard()->keysState().shift)
     {
         // spdlog::info("clicked");
@@ -161,7 +164,7 @@ void Launcher::_port_update_keyboard_state()
 
             spdlog::info("caps lock: {}", _data.hal->keyboard()->capslocked());
 
-            // Avoid trple clicked liked shit
+            // Avoid trple clicked liked stuff
             _last_caps_lock_click_time = 0;
         }
         else
@@ -170,12 +173,13 @@ void Launcher::_port_update_keyboard_state()
         }
     }
 
+
     // Reset state
     _data.keybaord_state.reset();
     _last_caps_lock_state = false;
     _is_special_key_pressed = false;
 
-    // Keyboard bar icon shit
+    // Keyboard bar icon stuff
     if (_data.hal->keyboard()->keyList().size())
     {
         // _data.hal->keyboard()->updateKeysState();
@@ -212,7 +216,8 @@ void Launcher::_port_update_keyboard_state()
         _data.keybaord_state.caps_lock = true;
     }
 
-    // Key sound shit
+
+    // Key sound stuff
     if (_data.hal->keyboard()->keyList().size() != _last_key_num)
     {
         if (_data.hal->keyboard()->keyList().size() == 0)
@@ -229,8 +234,11 @@ void Launcher::_port_update_keyboard_state()
     }
 }
 
+
+
 uint32_t _bat_update_time_count = 0;
 uint32_t _wifi_update_time_count = 0;
+
 
 void Launcher::_port_update_system_state()
 {
@@ -238,7 +246,9 @@ void Launcher::_port_update_system_state()
     // _data.system_state.bat_state = 2;
     // _data.system_state.time = "22:33";
 
-    // Time shit
+
+
+    // Time stuff
     if (_data.hal->isSntpAdjusted())
     {
         static time_t now;
@@ -252,16 +262,61 @@ void Launcher::_port_update_system_state()
     else
     {
         // Fake time
-        snprintf(_data.string_buffer,
-                 sizeof(_data.string_buffer),
-                 "%02lld:%02lld",
-                 (millis() / 3600000) % 60,
-                 (millis() / 60000) % 60);
+        snprintf(_data.string_buffer, sizeof(_data.string_buffer), "%02lld:%02lld", (millis() / 3600000) % 60, (millis() / 60000) % 60);
     }
     _data.system_state.time = _data.string_buffer;
     // spdlog::info("time: {}", _data.system_state.time);
 
-    // Bat shit
+
+    if ((millis() - _wifi_update_time_count) > 1000 || _wifi_update_time_count == 0)
+    {
+        wifi_mode_t mode;
+        if (esp_wifi_get_mode(&mode) == ESP_OK) {
+            if (mode == WIFI_MODE_AP) {
+                _data.system_state.wifi_state = 1;
+            } else if (mode == WIFI_MODE_STA || mode == WIFI_MODE_APSTA) {
+                wifi_ap_record_t ap_info;
+                if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+                    // connected
+                    if (ap_info.rssi > -65) {
+                        // strong singal
+                        _data.system_state.wifi_state = 1;
+                    } else if (ap_info.rssi > -90) {
+                        // strong singal
+                        _data.system_state.wifi_state = 2;
+                    } else {
+                        // bad singal
+                        if (millis() / 1000 % 2)
+                            _data.system_state.wifi_state = 2;
+                        else
+                            _data.system_state.wifi_state = 3;
+                    }
+                } else {
+                    // not connected
+                    _data.system_state.wifi_state = 3;
+                }
+            } else {
+                _data.system_state.wifi_state = 3;
+            }
+
+        } else {
+            // wifi not on
+            _data.system_state.wifi_state = 4;
+        }
+        // auto wl_stat = WiFi.status();
+        // spdlog::info("wifi stat {}", wl_stat);
+
+        // if (wl_stat == WL_CONNECTED)
+        //     _data.system_state.wifi_state = 1;
+        // else if (wl_stat == WL_IDLE_STATUS)
+        //     _data.system_state.wifi_state = 3;
+        // else
+        //     _data.system_state.wifi_state = 4;
+
+        _wifi_update_time_count = millis();
+    }
+
+    // Bat stuff
     if ((millis() - _bat_update_time_count) > 5000 || _bat_update_time_count == 0)
     {
         auto bat_level = _data.hal->getBatLevel();
@@ -288,4 +343,5 @@ void Launcher::_port_update_system_state()
             _data.system_state.bat_state = 5;
         _bat_update_time_count = millis();
     }
+
 }
