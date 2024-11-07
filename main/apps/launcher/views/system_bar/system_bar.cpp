@@ -24,12 +24,15 @@
 #include "assets/wifi3.h"
 #include "assets/wifi4.h"
 #include "assets/wifi5.h"
+#include "assets/redio.h"
 
 using namespace MOONCAKE::APPS;
 
 void Launcher::_start_system_bar()
 {
     // _data.hal->canvas_system_bar()->fillScreen(TFT_BLUE);
+     spdlog::info("Start wifi connection ... ");
+     _set_config();
 }
 
 void Launcher::_update_system_bar()
@@ -73,7 +76,10 @@ void Launcher::_update_system_bar()
             50,
             _data.hal->canvas_system_bar()->height() / 2 - FONT_HEIGHT / 2 - 1
         );
-
+        if(_data.web_redio_runing){
+             _data.hal->canvas_system_bar()->pushImage(75, 5, 16, 16, redio1); 
+        } 
+         
 
         // Wifi stuff
         // int x = 15;

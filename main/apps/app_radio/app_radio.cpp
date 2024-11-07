@@ -23,6 +23,8 @@ using namespace MOONCAKE::APPS;
 
 // AppRadio::Data_t *AppRadio::_current_data = nullptr;
 bool AppRadio::__running = false;
+static char _wifi_ssid[50];
+static char _wifi_password[50];
 
 void AppRadio::_update_input()
 {
@@ -130,8 +132,7 @@ void AppRadio::_update_cursor()
 }
 
 
-static char _wifi_ssid[50] = "IOTNetwork";
-static char _wifi_password[50] = "fwintheshell";
+
 
 void AppRadio::_update_state()
 {
@@ -168,6 +169,7 @@ void AppRadio::_update_state()
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_wait_password;
+         _data.hal->setWifiSSID(_data.wifi_ssid.c_str());
         spdlog::info("wifi ssid set: {}", _data.wifi_ssid);
 
         if (*_wifi_password) {
@@ -183,11 +185,14 @@ void AppRadio::_update_state()
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_setup;
+        _data.hal->setWifiPassword(_data.wifi_password.c_str());
         spdlog::info("wifi password set: {}", _data.wifi_password);
 
     }
 
     if (_data.current_state == state_setup) {
+        _data.wifi_ssid = _data.hal->getWifiSSID();
+        _data.wifi_password = _data.hal->getWifiPassword();
         _setup();
         _data.current_state = state_started;
     }
@@ -199,6 +204,7 @@ void AppRadio::_update_state()
 
                 _data.hal->playNextSound();
                 spdlog::info("quit radio");
+                _data.hal->setWebRedioRuning(__running);
                 destroyApp();
                 break;
             }
@@ -211,6 +217,7 @@ void AppRadio::_update_state()
                 _data._last_update_battery_time = millis();
             }
         }
+       
     }
 }
 
@@ -239,6 +246,7 @@ void AppRadio::onResume()
     _canvas->setCursor(0, 0);
 
     _data._wifi_already_connected = (WiFi.status() == WL_CONNECTED);
+    _data.hal->setWifiConnected(_data._wifi_already_connected);
     if (!__running)  {
         if (!_data._wifi_already_connected) {
             _data.current_state = state_init;
@@ -248,9 +256,13 @@ void AppRadio::onResume()
     } else {
         _data.hal->display()->clear();
         gfxSetup(_data.hal->display());
-        meta_mod_bits = 3;
-        _data.current_state = state_started;
+        meta_mod_bits = 3; 
+       _data.current_state = state_init;;
     }
+
+      if (_data.hal->isWifiConnected()) {
+        _data.current_state = state_setup;;
+      }
 
     _update_state();
 }

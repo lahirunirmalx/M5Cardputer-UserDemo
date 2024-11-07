@@ -13,9 +13,13 @@
 #include "../../utils/boot_sound/boot_sound_1.h"
 #include "../../utils/boot_sound/boot_sound_2.h"
 #include "esp_wifi.h"
-// #include <WiFi.h>
+#include "esp_sntp.h"
+#include <WiFi.h>
+
+
 
 // #define NO_BOOT_PLAY_STUFF
+
 
 
 using namespace MOONCAKE::APPS;
@@ -313,6 +317,15 @@ void Launcher::_port_update_system_state()
         // else
         //     _data.system_state.wifi_state = 4;
 
+        if (_data.hal->isWebRedioRuning())
+        {
+            _data.web_redio_runing = true;
+        }
+        else
+        {
+            _data.web_redio_runing = false;
+        }
+
         _wifi_update_time_count = millis();
     }
 
@@ -344,4 +357,38 @@ void Launcher::_port_update_system_state()
         _bat_update_time_count = millis();
     }
 
+}
+ 
+void Launcher::_set_config()
+{
+          
+          _data.wifi_ssid = _data.hal->getWifiSSID();
+          _data.wifi_password = _data.hal->getWifiPassword();
+
+        // wifi_connect_wrap_config(_data.wifi_ssid.c_str(), _data.wifi_password.c_str());
+        // wifi_connect_wrap_connect();
+        
+        if (!_data.hal->isWifiConnected()) {
+            spdlog::info("Start wifi connection ... ");
+            WiFi.begin(_data.hal->getWifiSSID(), _data.hal->getWifiPassword());
+            WiFi.waitForConnectResult(20 * 1000);
+            
+            // if (wifi_connect_wrap_is_wifi_connect_success() != 0)
+        if (WiFi.status() == WL_CONNECTED) {
+             spdlog::info("connected to : {} ",WIFI_SSID); 
+             _data.hal->setWifiConnected(true);
+            if (!esp_sntp_enabled()) {
+                setenv("TZ", TIME_ZONE, 1);
+                tzset();
+                esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+                esp_sntp_setservername(0, "pool.ntp.org");
+                esp_sntp_init();
+                 spdlog::info("Time Zone set to : {} ",TIME_ZONE);
+               _data.hal->setSntpAdjusted(true);
+              spdlog::info("Done ");
+            } 
+        } 
+        }
+       
+        
 }

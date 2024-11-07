@@ -13,8 +13,7 @@
  * ESP8266Audio: https://github.com/earlephilhower/ESP8266Audio/
  */
 
-#define WIFI_SSID "IOTNetwork"
-#define WIFI_PASS "fwintheshell"
+
 
 #include "app_radio.h"
 #include "spdlog/spdlog.h"
@@ -510,14 +509,18 @@ void AppRadio::_setup(void) {
     int _try = 0;
     while (WiFi.status() != WL_CONNECTED) {
         if (_try++ > 200) break;
-        _data.hal->display()->print(".");
+        if(_try%5 == 0){
+         _data.hal->display()->print(".");
+        }
+        
         delay(100);
     }
     if (WiFi.status() == WL_CONNECTED) {
-        _data.hal->display()->println("");
-        _data.hal->display()->println("WiFi conectada.");
+        _data.hal->setWifiConnected(true);
+        _data.hal->display()->clear(); 
+        _data.hal->display()->println("WiFi Connected .");
         // _data.hal->display()->println(_data.wifi_ssid.c_str());
-        _data.hal->display()->println("Endereço de IP: ");
+        _data.hal->display()->println("IP Address : ");
         _data.hal->display()->println(WiFi.localIP());
         // _data.hal->display()->println();
         _data.hal->display()->setTextColor(TFT_GREEN, TFT_BLACK);
@@ -531,9 +534,10 @@ void AppRadio::_setup(void) {
     } else {
         // _data.hal->display()->println("");
         // _data.hal->display()->println("");
+        _data.hal->display()->clear();
         _data.hal->display()->setTextColor(TFT_RED, TFT_BLACK);
         _data.hal->display()->setTextSize(2);
-        _data.hal->display()->setCursor(160, 105);
+        _data.hal->display()->setCursor(85,50);
         _data.hal->display()->println("FAILED");
         _data.hal->Speaker()->tone(1200, 200);
         delay(5000);
@@ -541,6 +545,8 @@ void AppRadio::_setup(void) {
         free(preallocateBuffer);
         free(preallocateCodec);
         WiFi.disconnect(true);
+        _data.hal->setWifiConnected(false);
+        _data.current_state = state_init;
         return;
     }
     _data.hal->display()->clear();
@@ -608,38 +614,4 @@ void AppRadio::_loop(void) {
         _data.last_key_num = _data.hal->keyboard()->keyList().size();
     }
 
-    // if (M5Cardputer.BtnA.wasPressed())
-    // {
-    //   _data.hal->Speaker()->tone(440, 50);
-    // }
-    // if (M5Cardputer.BtnA.wasDecideClickCount())
-    // {
-    //   switch (M5Cardputer.BtnA.getClickCount())
-    //   {
-    //   case 1:
-    //     _data.hal->Speaker()->tone(1000, 100);
-    //     if (++station_index >= stations) { station_index = 0; }
-    //     play(station_index);
-    //     break;
-
-    //   case 2:
-    //     _data.hal->Speaker()->tone(800, 100);
-    //     if (station_index == 0) { station_index = stations; }
-    //     play(--station_index);
-    //     break;
-    //   }
-    // }
-    // if (M5Cardputer.BtnA.isHolding() || M5.BtnB.isPressed() || M5.BtnC.isPressed())
-    // {
-    //   int add = (M5.BtnB.isPressed()) ? -1 : 1;
-    //   if (M5.BtnA.isHolding())
-    //   {
-    //     add = M5.BtnA.getClickCount() ? -1 : 1;
-    //   }
-    //   v += add;
-    //   if (v <= 255)
-    //   {
-    //     _data.hal->Speaker()->setVolume(v);
-    //   }
-    // }
 }

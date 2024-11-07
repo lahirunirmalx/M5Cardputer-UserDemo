@@ -79,6 +79,10 @@ namespace MOONCAKE
                 uint32_t keyboard_bar_update_count = 0;
                 KeyboardBarState_t keybaord_state;
 
+                std::string wifi_ssid;
+                std::string wifi_password;
+                bool _alreay_connected = false; 
+                bool web_redio_runing = false; 
                 uint8_t _brightness = 127;
 
                 char string_buffer[100];
@@ -89,6 +93,8 @@ namespace MOONCAKE
 
             void _start_menu();
             void _update_menu();
+            void _set_config();
+
 
             void _start_system_bar();
             void _update_system_bar();
