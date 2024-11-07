@@ -10,20 +10,20 @@
  */
 #include "app_set_wifi.h"
 #include "spdlog/spdlog.h"
-
+ 
 // #include "../utils/wifi_connect_wrap/wifi_connect_wrap.h"
 // #include "../utils/sntp_wrap/sntp_wrap.h"
 #include <WiFi.h>
 #include "esp_sntp.h"
 
-using namespace MOONCAKE::APPS;
-
+using namespace MOONCAKE::APPS; 
 
 #define _keyboard _data.hal->keyboard()
 #define _canvas _data.hal->canvas()
 #define _canvas_update _data.hal->canvas_update
 #define _canvas_clear() _canvas->fillScreen(THEME_COLOR_BG)
-
+static char _wifi_ssid[50] = WIFI_SSID;
+static char _wifi_password[50] = WIFI_PASS;
 
 void AppSetWiFi::_update_input() {
     // spdlog::info("{} {}", _keyboard->keyList().size(), _data.last_key_num);
@@ -116,8 +116,7 @@ void AppSetWiFi::_update_cursor() {
 }
 
 
-static char _wifi_ssid[50] = "IOTNetwork";
-static char _wifi_password[50] = "fwintheshell";
+
 
 void AppSetWiFi::_update_state() {
     if (_data.current_state == state_init) {
@@ -145,6 +144,7 @@ void AppSetWiFi::_update_state() {
         _canvas_update();
 
         _data.wifi_ssid = _data.repl_input_buffer;
+        _data.hal->setWifiSSID(_data.wifi_ssid.c_str());
 
         // Reset buffer
         _data.repl_input_buffer = "";
@@ -161,6 +161,8 @@ void AppSetWiFi::_update_state() {
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_connect;
+
+        _data.hal->setWifiPassword(_data.wifi_password.c_str());
         spdlog::info("wifi password set: {}", _data.wifi_password);
         _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
         _canvas->printf("WiFi config:\n- %s\n- %s\nConnecting...\n", _data.wifi_ssid.c_str(), _data.wifi_password.c_str());
@@ -172,7 +174,9 @@ void AppSetWiFi::_update_state() {
 
 
     if (_data.current_state == state_connect) {
-
+          
+          _data.wifi_ssid = _wifi_ssid;
+          _data.wifi_password = _wifi_password;
 
         // wifi_connect_wrap_config(_data.wifi_ssid.c_str(), _data.wifi_password.c_str());
         // wifi_connect_wrap_connect();
@@ -191,7 +195,7 @@ void AppSetWiFi::_update_state() {
             // sntp_warp_init();
 
             if (!esp_sntp_enabled()) {
-                setenv("TZ", "CST-8", 1);
+                setenv("TZ", TIME_ZONE, 1);
                 tzset();
                 esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
                 esp_sntp_setservername(0, "pool.ntp.org");
@@ -214,6 +218,8 @@ void AppSetWiFi::_update_state() {
             _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
             _canvas->printf(">>> ");
             _canvas_update();
+            delay(500);
+            destroyApp();
         }
 
         // wifi_connect_wrap_disconnect();
@@ -239,6 +245,7 @@ void AppSetWiFi::_update_state() {
             _canvas->printf("WiFi off\n");
         } else {
             _canvas->printf("cancel\n");
+            destroyApp();
         }
         _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
         _canvas->printf(">>> ");
@@ -252,6 +259,7 @@ void AppSetWiFi::onCreate() {
 
     // Get hal
     _data.hal = mcAppGetDatabase()->Get("HAL")->value<HAL::Hal*>();
+    
 }
 
 
@@ -267,14 +275,21 @@ void AppSetWiFi::onResume() {
     _canvas->setCursor(0, 0);
 
     _data._alreay_connected = (WiFi.status() == WL_CONNECTED);
+    _data.hal->setWifiConnected(_data._alreay_connected);
     if (_data._alreay_connected) {
         if (!esp_sntp_enabled())
             _data.current_state = state_connect;
         else
             _data.current_state = state_already_connected;
     } else {
-        _data.current_state = state_init;
+         if (_wifi_ssid[0] != '\0' && _wifi_password[0] != '\0') {
+            _data.current_state = state_connect;       
+        }else{
+        _data.current_state = state_init; 
+        }
+        
     }
+   
     _update_state();
 }
 
@@ -288,6 +303,12 @@ void AppSetWiFi::onRunning() {
         _data.hal->playNextSound();
         spdlog::info("quit set wifi");
         destroyApp();
+    }
+    if (_data.hal->keyboard()->keysState().fn){
+        _data.hal->playNextSound();
+        _data.current_state = state_init;
+        _data.hal->setWifiConnected(false); 
+        _data.hal->setSntpAdjusted(false); 
     }
 }
 
