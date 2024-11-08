@@ -3,4 +3,8 @@
 	url = https://github.com/espressif/arduino-esp32.git
 [submodule "components/ESP8266Audio"]
 	path = components/ESP8266Audio
-	url = https://github.com/WuSiYu/ESP8266Audio
+	url = https://github.com/lahirunirmalx/ESP8266Audio
+[submodule "components/libNeon"]
+	path = components/libNeon
+	url = https://github.com/LizardM4/libNeon	
+	
