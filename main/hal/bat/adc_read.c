@@ -41,7 +41,6 @@ static const char *TAG_CH[2][10] = {{"ADC1_CH6"}, {"ADC2_CH0"}};
 #else
 #define ADC1_EXAMPLE_CHAN0          ADC1_CHANNEL_9
 #define ADC2_EXAMPLE_CHAN0          ADC2_CHANNEL_0
-static const char *TAG_CH[2][10] = {{"ADC1_CH2"}, {"ADC2_CH0"}};
 #endif
 
 //ADC Attenuation
@@ -63,10 +62,6 @@ static int adc_raw[2][10];
 static const char *TAG = "ADC SINGLE";
 
 static esp_adc_cal_characteristics_t adc1_chars;
-#if !CONFIG_IDF_TARGET_ESP32C3
-//ESP32C3 ADC2 single mode is no longer supported
-static esp_adc_cal_characteristics_t adc2_chars;
-#endif
 
 static bool adc_calibration_init(void)
 {
@@ -81,9 +76,6 @@ static bool adc_calibration_init(void)
     } else if (ret == ESP_OK) {
         cali_enable = true;
         esp_adc_cal_characterize(ADC_UNIT_1, ADC_EXAMPLE_ATTEN, ADC_WIDTH_BIT_DEFAULT, 0, &adc1_chars);
-// #if !CONFIG_IDF_TARGET_ESP32C3
-//         esp_adc_cal_characterize(ADC_UNIT_2, ADC_EXAMPLE_ATTEN, ADC_WIDTH_BIT_DEFAULT, 0, &adc2_chars);
-// #endif
     } else {
         ESP_LOGE(TAG, "Invalid arg");
     }
@@ -98,55 +90,26 @@ static bool cali_enable = false;
 
 void adc_read_init(void)
 {
-    // uint32_t voltage = 0;
-    // bool cali_enable = adc_calibration_init();
+
     voltage = 0;
     cali_enable = adc_calibration_init();
 
     //ADC1 config
     ESP_ERROR_CHECK(adc1_config_width(ADC_WIDTH_BIT_DEFAULT));
     ESP_ERROR_CHECK(adc1_config_channel_atten(ADC1_EXAMPLE_CHAN0, ADC_EXAMPLE_ATTEN));
-// #if !CONFIG_IDF_TARGET_ESP32C3
-//     //ADC2 config
-//     ESP_ERROR_CHECK(adc2_config_channel_atten(ADC2_EXAMPLE_CHAN0, ADC_EXAMPLE_ATTEN));
-// #endif
 
-//     while (1) {
-//         adc_raw[0][0] = adc1_get_raw(ADC1_EXAMPLE_CHAN0);
-//         ESP_LOGI(TAG_CH[0][0], "raw  data: %d", adc_raw[0][0]);
-//         if (cali_enable) {
-//             voltage = esp_adc_cal_raw_to_voltage(adc_raw[0][0], &adc1_chars);
-//             ESP_LOGI(TAG_CH[0][0], "cali data: %d mV", voltage);
-//         }
-//         vTaskDelay(pdMS_TO_TICKS(1000));
-
-// // #if !CONFIG_IDF_TARGET_ESP32C3
-// //         esp_err_t ret = ESP_OK;
-// //         do {
-// //             ret = adc2_get_raw(ADC2_EXAMPLE_CHAN0, ADC_WIDTH_BIT_DEFAULT, &adc_raw[1][0]);
-// //         } while (ret == ESP_ERR_INVALID_STATE);
-// //         ESP_ERROR_CHECK(ret);
-
-// //         ESP_LOGI(TAG_CH[1][0], "raw  data: %d", adc_raw[1][0]);
-// //         if (cali_enable) {
-// //             voltage = esp_adc_cal_raw_to_voltage(adc_raw[1][0], &adc2_chars);
-// //             ESP_LOGI(TAG_CH[1][0], "cali data: %d mV", voltage);
-// //         }
-// //         vTaskDelay(pdMS_TO_TICKS(1000));
-// // #endif
-//     }
 }
 
 
 uint32_t adc_read_get_value()
 {
     adc_raw[0][0] = adc1_get_raw(ADC1_EXAMPLE_CHAN0);
-    ESP_LOGI(TAG_CH[0][0], "raw  data: %d", adc_raw[0][0]);
+    //ESP_LOGI(TAG_CH[0][0], "raw  data: %d", adc_raw[0][0]);
     if (cali_enable) {
         voltage = esp_adc_cal_raw_to_voltage(adc_raw[0][0], &adc1_chars);
-        ESP_LOGI(TAG_CH[0][0], "cali data: %d mV", voltage);
+        //ESP_LOGI(TAG_CH[0][0], "cali data: %d mV", voltage);
     }
-    // vTaskDelay(pdMS_TO_TICKS(1000));
+
 
     return voltage;
 }
