@@ -28,10 +28,7 @@ namespace HAL
             void init() override;
             void playKeyboardSound() override { _speaker->setChannelVolume(TONE_CHANNEL, 100); _speaker->tone(1250, 20, TONE_CHANNEL); }
             void playLastSound() override { _speaker->setChannelVolume(TONE_CHANNEL, 75); _speaker->tone(1500, 10, TONE_CHANNEL); }
-            void playNextSound() override { _speaker->setChannelVolume(TONE_CHANNEL, 100); _speaker->tone(1000, 20, TONE_CHANNEL); }
-            // void playKeyboardSound() override { _speaker->setChannelVolume(CHANNEL_TONE, 24*3); _speaker->tone(2500, 20, CHANNEL_TONE); }
-            // void playLastSound() override { _speaker->setChannelVolume(CHANNEL_TONE, 18*3); _speaker->tone(3000, 20, CHANNEL_TONE); }
-            // void playNextSound() override { _speaker->setChannelVolume(CHANNEL_TONE, 24*3); _speaker->tone(2000, 20, CHANNEL_TONE); }
+            void playNextSound() override { _speaker->setChannelVolume(TONE_CHANNEL, 100); _speaker->tone(1000, 20, TONE_CHANNEL); } 
             uint8_t getBatLevel() override;
 
         public:
