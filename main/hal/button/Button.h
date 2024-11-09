@@ -6,7 +6,6 @@
 
 #ifndef Button_h
 #define Button_h
-// #include "Arduino.h"
 #include <stdint.h>
 
 class Button
@@ -20,8 +19,6 @@ class Button
 		bool released();
 		bool has_changed();
 		
-		// const static bool PRESSED = LOW;
-		// const static bool RELEASED = HIGH;
 		const static bool PRESSED = false;
 		const static bool RELEASED = true;
 	
