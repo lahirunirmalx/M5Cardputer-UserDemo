@@ -27,11 +27,8 @@ using namespace MOONCAKE::APPS;
 
 void Launcher::_port_wait_enter()
 {
-    // delay(600);
-
-    _data.hal->Speaker()->setVolume(64);
-    // bool stuff = false;
-
+ 
+    _data.hal->Speaker()->setVolume(64); 
     _data.hal->keyboard()->updateKeyList();
     if (_data.hal->keyboard()->keyList().size())
     {
@@ -39,14 +36,13 @@ void Launcher::_port_wait_enter()
         auto cfg = _data.hal->Speaker()->config();
         cfg.magnification = 1;
         _data.hal->Speaker()->config(cfg);
-        // _data.hal->Speaker()->playWav(boot_sound_1, sizeof(boot_sound_1));
+ 
     }
     else
     {
-        // stuff = true;
+ 
         #ifndef NO_BOOT_PLAY_STUFF
         _data.hal->Speaker()->playWav(boot_sound_1, sizeof(boot_sound_1));
-        // _data.hal->Speaker()->playWav(boot_sound_2, sizeof(boot_sound_2));
         #endif
     }
 
@@ -71,11 +67,7 @@ void Launcher::_port_wait_enter()
 
         delay(50);
     }
-
-    // if (stuff)
-    //     _data.hal->Speaker()->playWav(boot_sound_2, sizeof(boot_sound_2));
-    // else
-    //     _data.hal->Speaker()->playWav(boot_sound_1, sizeof(boot_sound_1));
+ 
 }
 
 
@@ -83,7 +75,7 @@ bool Launcher::_port_check_next_pressed()
 {
     if (_data.hal->keyboard()->isKeyPressing(55) || _data.hal->keyboard()->isKeyPressing(54))
     {
-        // _data.hal->playNextSound();
+  
 
         // Hold till release
         while (_data.hal->keyboard()->isKeyPressing(55) || _data.hal->keyboard()->isKeyPressing(54))
@@ -104,7 +96,7 @@ bool Launcher::_port_check_last_pressed()
 {
     if (_data.hal->keyboard()->isKeyPressing(53) || _data.hal->keyboard()->isKeyPressing(40))
     {
-        // _data.hal->playLastSound();
+ 
 
         // Hold till release
         while (_data.hal->keyboard()->isKeyPressing(53) || _data.hal->keyboard()->isKeyPressing(40))
@@ -125,7 +117,6 @@ bool Launcher::_port_check_key_pressed(int keynum)
 {
     if (_data.hal->keyboard()->isKeyPressing(keynum))
     {
-        // _data.hal->playNextSound();
 
         // Hold till release
         while (_data.hal->keyboard()->isKeyPressing(keynum))
@@ -186,7 +177,7 @@ void Launcher::_port_update_keyboard_state()
     // Keyboard bar icon stuff
     if (_data.hal->keyboard()->keyList().size())
     {
-        // _data.hal->keyboard()->updateKeysState();
+ 
         if (_data.hal->keyboard()->keysState().shift)
         {
             _data.keybaord_state.caps_lock = true;
@@ -246,11 +237,7 @@ uint32_t _wifi_update_time_count = 0;
 
 void Launcher::_port_update_system_state()
 {
-    _data.system_state.wifi_state = 1;
-    // _data.system_state.bat_state = 2;
-    // _data.system_state.time = "22:33";
-
-
+    _data.system_state.wifi_state = 1;  
 
     // Time stuff
     if (_data.hal->isSntpAdjusted())
@@ -259,8 +246,7 @@ void Launcher::_port_update_system_state()
         static struct tm timeinfo;
         time(&now);
         localtime_r(&now, &timeinfo);
-
-        // spdlog::info("{} {}", timeinfo.tm_hour, timeinfo.tm_min);
+ 
         snprintf(_data.string_buffer, sizeof(_data.string_buffer), "%02d:%02d", timeinfo.tm_hour, timeinfo.tm_min);
     }
     else
@@ -269,7 +255,7 @@ void Launcher::_port_update_system_state()
         snprintf(_data.string_buffer, sizeof(_data.string_buffer), "%02lld:%02lld", (millis() / 3600000) % 60, (millis() / 60000) % 60);
     }
     _data.system_state.time = _data.string_buffer;
-    // spdlog::info("time: {}", _data.system_state.time);
+
 
 
     if ((millis() - _wifi_update_time_count) > 1000 || _wifi_update_time_count == 0)
@@ -307,15 +293,7 @@ void Launcher::_port_update_system_state()
             // wifi not on
             _data.system_state.wifi_state = 4;
         }
-        // auto wl_stat = WiFi.status();
-        // spdlog::info("wifi stat {}", wl_stat);
-
-        // if (wl_stat == WL_CONNECTED)
-        //     _data.system_state.wifi_state = 1;
-        // else if (wl_stat == WL_IDLE_STATUS)
-        //     _data.system_state.wifi_state = 3;
-        // else
-        //     _data.system_state.wifi_state = 4;
+ 
 
         if (_data.hal->isWebRedioRuning())
         {
@@ -333,16 +311,8 @@ void Launcher::_port_update_system_state()
     if ((millis() - _bat_update_time_count) > 5000 || _bat_update_time_count == 0)
     {
         auto bat_level = _data.hal->getBatLevel();
-        spdlog::info("get bat level: {}", bat_level);
-
-        // if (bat_level >= 75)
-        //     _data.system_state.bat_state = 1;
-        // else if (bat_level >= 50)
-        //     _data.system_state.bat_state = 2;
-        // else if (bat_level >= 25)
-        //     _data.system_state.bat_state = 3;
-        // else
-        //     _data.system_state.bat_state = 4;
+        //spdlog::info("get bat level: {}", bat_level);
+ 
 
         if (bat_level >= 100)
             _data.system_state.bat_state = 1;
@@ -363,17 +333,14 @@ void Launcher::_set_config()
 {
           
           _data.wifi_ssid = _data.hal->getWifiSSID();
-          _data.wifi_password = _data.hal->getWifiPassword();
+          _data.wifi_password = _data.hal->getWifiPassword(); 
 
-        // wifi_connect_wrap_config(_data.wifi_ssid.c_str(), _data.wifi_password.c_str());
-        // wifi_connect_wrap_connect();
-        
         if (!_data.hal->isWifiConnected()) {
             spdlog::info("Start wifi connection ... ");
             WiFi.begin(_data.hal->getWifiSSID(), _data.hal->getWifiPassword());
             WiFi.waitForConnectResult(20 * 1000);
-            
-            // if (wifi_connect_wrap_is_wifi_connect_success() != 0)
+            // @todo logic to stop connecting after N number of fail attempts 
+  
         if (WiFi.status() == WL_CONNECTED) {
              spdlog::info("connected to : {} ",WIFI_SSID); 
              _data.hal->setWifiConnected(true);
