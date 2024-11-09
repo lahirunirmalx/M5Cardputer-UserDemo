@@ -18,9 +18,9 @@
 #include "sdmmc_cmd.h"
 #include "sdcard.h"
 
-#define PIN_NUM_MISO 39
-#define PIN_NUM_MOSI 14
-#define PIN_NUM_CLK  40
+#define PIN_NUM_MISO GPIO_NUM_39
+#define PIN_NUM_MOSI GPIO_NUM_14
+#define PIN_NUM_CLK  GPIO_NUM_40
 #define PIN_NUM_CS   GPIO_NUM_12
 
 static const char *MOUNT_POINT = "/sdcard";
