@@ -47,19 +47,7 @@ uint8_t Keyboard::_get_input(const std::vector<int>& pinList)
 
 void Keyboard::init()
 {
-    // for (auto i : output_list) {
-    //     gpio_reset_pin((gpio_num_t)i);
-    //     pinMode(i, OUTPUT);
-    //     digitalWrite(i, 0);
-    // }
-
-    // for (auto i : input_list) {
-    //     gpio_reset_pin((gpio_num_t)i);
-    //     pinMode(i, INPUT_PULLUP);
-    // }
-
-    // _set_output(output_list, 0);
-
+    
 
     for (auto i : output_list) 
     {
@@ -89,8 +77,7 @@ Point2D_t Keyboard::getKey()
     uint8_t input_value = 0;
 
     for (int i = 0; i < 8; i++) {
-        _set_output(output_list, i);
-        // printf("% 3d,\t", get_input(inputList));
+        _set_output(output_list, i); 
 
         input_value = _get_input(input_list);
 
@@ -117,7 +104,7 @@ Point2D_t Keyboard::getKey()
         }
     }
 
-    // printf("%d,%d\n", x, y);
+ 
     return coor;
 }
 
@@ -147,7 +134,7 @@ void Keyboard::updateKeyList()
 
     for (int i = 0; i < 8; i++) {
         _set_output(output_list, i);
-        // printf("% 3d,\t", get_input(inputList));
+ 
 
         input_value = _get_input(input_list);
         
@@ -158,21 +145,12 @@ void Keyboard::updateKeyList()
             // printf("c: ");
             
             /* Get X */
-            for (int j = 0; j < 7; j++) {
-
-                // if (input_value == X_map_chart[j].value) {
-                //     coor.x = (i > 3) ? X_map_chart[j].x_1 : X_map_chart[j].x_2;
-                //     break;
-                // }
-
-
-
+            for (int j = 0; j < 7; j++) {  
                 if (input_value & (0x01 << j)) {
                     coor.x = (i > 3) ? X_map_chart[j].x_1 : X_map_chart[j].x_2;
                 
                     /* Get Y */
-                    coor.y = (i > 3) ? (i - 4) : i;
-                    // printf("%d,%d\t", coor.x, coor.y); 
+                    coor.y = (i > 3) ? (i - 4) : i;  
 
 
                     /* Keep the same as picture */
@@ -184,12 +162,7 @@ void Keyboard::updateKeyList()
 
 
             }
-
-            // printf("\n");
-
-
-            // /* Get Y */
-            // coor.y = (i > 3) ? (i - 4) : i;
+ 
         }
     }
 }
