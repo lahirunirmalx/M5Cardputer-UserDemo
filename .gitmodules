@@ -4,7 +4,6 @@
 [submodule "components/ESP8266Audio"]
 	path = components/ESP8266Audio
 	url = https://github.com/lahirunirmalx/ESP8266Audio
-[submodule "components/libNeon"]
-	path = components/libNeon
-	url = https://github.com/LizardM4/libNeon	
-	
+[submodule "components/NeoLED"]
+	path = components/NeoLED
+	url = git@github.com:lahirunirmalx/NeoLED.git
