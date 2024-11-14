@@ -116,50 +116,32 @@ void AppLed::onRunning()
         auto pressing_key = _data.hal->keyboard()->getKey();
         if (!_data.last_key_num)
         {
+
+          spdlog::info("key press : {}",_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first);
+
             if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_R)
             {
-                _canvas_clear();
-                _canvas->setBaseColor(THEME_COLOR_BG);
-                _canvas->setTextColor(THEME_COLOR_REPL_TEXT, TFT_RED);
-                _canvas->setFont(FONT_REPL);
-                _canvas->setTextSize(FONT_SIZE_REPL);
-                _canvas->setCursor(0, 0);
-                _canvas->printf("Key R press");
-                _canvas_update();
-                _data._hue_val = HUE_RED;
+                 
+                _data._hue_val = TFT_RED;
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_G)
             {
-                _canvas_clear();
-                _canvas->setBaseColor(THEME_COLOR_BG);
-                _canvas->setTextColor(THEME_COLOR_REPL_TEXT, TFT_GREEN);
-                _canvas->setFont(FONT_REPL);
-                _canvas->setTextSize(FONT_SIZE_REPL);
-                _canvas->setCursor(0, 0);
-                _canvas->printf("Key G press");
-                _canvas_update();
-                _data._hue_val = HUE_GREEN;
+                 
+                _data._hue_val = TFT_GREEN;
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_B)
             {
-                _canvas_clear();
-                _canvas->setBaseColor(THEME_COLOR_BG);
-                _canvas->setTextColor(THEME_COLOR_REPL_TEXT, TFT_BLUE);
-                _canvas->setFont(FONT_REPL);
-                _canvas->setTextSize(FONT_SIZE_REPL);
-                _canvas->setCursor(0, 0);
-                _canvas->printf("Key B press");
-                _canvas_update();
-                _data._hue_val = HUE_BLUE;
+                 
+                _data._hue_val = TFT_BLUE;
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_A)
             {
                 _data.current_state = state_auto;
             }
-            else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_UP)
+            else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_SEMICOLON)
             {
                 _data.current_state = state_manual;
                 if (_data._hue_val < 254)
@@ -171,7 +153,7 @@ void AppLed::onRunning()
                     _data._hue_val = 0;
                 }
             }
-            else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_DOWN)
+            else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_DOT)
             {
                 _data.current_state = state_manual;
                 if (_data._hue_val > 0)
