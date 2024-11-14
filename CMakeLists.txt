@@ -10,6 +10,7 @@ cmake_minimum_required(VERSION 3.16)
 # add_definitions(-DNO_BOOT_PLAY_STUFF)
 
 include_directories(./main/apps/utils/usb_keyboard_wrap/hid_device)
+#include_directories(./components/NeoLED)
 
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
