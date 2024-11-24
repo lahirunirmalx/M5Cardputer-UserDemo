@@ -179,6 +179,8 @@ void AppLed::onRunning()
         spdlog::info("quit LED"); 
         NeoLED::Pixel off_pixel = NeoLED::makePixel(0,0,0);
         NeoLED::update(&off_pixel); 
+        NeoLED::update(&off_pixel); 
+        NeoLED::update(&off_pixel); 
         NeoLED::destroy(); 
         delay(100); // delay bit to off the LED
         destroyApp();
