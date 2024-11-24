@@ -47,7 +47,7 @@ These improvements aim to make the project more stable, user-friendly, and easie
 Below is the roadmap of planned apps and enhancements:
 
 - [ ] Screen Off / Charging Mode (to avoid screen burn-in).
-- [ ] Support for Built-in LED Notifications.
+- [x] Support for Built-in LED Notifications. [NeoLED](https://github.com/lahirunirmalx/NeoLED)
 - [ ] Save and load user preferences.
 - [ ] Calculator App.
 - [ ] Resistor Calculator App.
