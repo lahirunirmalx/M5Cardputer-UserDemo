@@ -59,10 +59,14 @@ void AppLed::onRunning()
         _canvas->setFont(FONT_REPL);
         _canvas->setTextSize(FONT_SIZE_REPL);
         _canvas->setCursor(0, 0);
-        _canvas->printf("App Started");
-        _canvas_update(); 
+        _canvas->println("Press A to Start ");
+        _canvas->println("Press R to Red ");
+        _canvas->println("Press B to Blue ");
+        _canvas->println("Press G to Green ");
+        _canvas->println("Use UP and DOWN keys to set color");
+         _canvas_update(); 
          NeoLED::init();
-         _data.current_state = state_auto;
+        // _data.current_state = state_auto;
 
           
          
@@ -77,16 +81,16 @@ void AppLed::onRunning()
             NeoLED::update(&pixel); 
             _data._hue_val++;
 
-            uint32_t hexValue = ((uint32_t)pixel.red << 16) | ((uint32_t)pixel.green << 8) | (uint32_t)pixel.blue;
+           uint32_t hexValue = NeoLED::hexValue(pixel);
         
-            _canvas_clear();
-            _canvas->setBaseColor(THEME_COLOR_BG);
-            _canvas->setTextColor(THEME_COLOR_REPL_TEXT, hexValue);
-            _canvas->setFont(FONT_BASIC);
-            _canvas->setTextSize(2);
-            _canvas->setCursor(70, 40);
-            _canvas->printf("LED set to  %d",_data._hue_val);
-            _canvas_update(); 
+        _canvas_clear();
+        _canvas->setBaseColor(THEME_COLOR_BG);
+        _canvas->setTextColor(THEME_COLOR_REPL_TEXT, hexValue);
+        _canvas->setFont(FONT_BASIC);
+        _canvas->setTextSize(2);
+        _canvas->setCursor(70, 40);
+        _canvas->fillCircle(80, 40,30,hexValue);
+        _canvas_update(); 
 
             if(_data._hue_val > 254){
                 _data._hue_val = 0;
@@ -95,9 +99,7 @@ void AppLed::onRunning()
     } else if (_data.current_state == state_manual) {
         NeoLED::Pixel pixel = NeoLED::colorWheel(_data._hue_val);
         NeoLED::update(&pixel); 
-        
-
-          uint32_t hexValue = ((uint32_t)pixel.red << 16) | ((uint32_t)pixel.green << 8) | (uint32_t)pixel.blue;
+        uint32_t hexValue = NeoLED::hexValue(pixel);
     
         _canvas_clear();
         _canvas->setBaseColor(THEME_COLOR_BG);
@@ -105,7 +107,7 @@ void AppLed::onRunning()
         _canvas->setFont(FONT_BASIC);
         _canvas->setTextSize(2);
         _canvas->setCursor(70, 40);
-        _canvas->printf("LED set to  %d",_data._hue_val);
+        _canvas->fillCircle(80, 40,30,hexValue);
         _canvas_update(); 
 
     }
@@ -122,19 +124,19 @@ void AppLed::onRunning()
             if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_R)
             {
                  
-                _data._hue_val = TFT_RED;
+                _data._hue_val = NeoLED::hueValue( (NeoLED::Pixel){0, 255, 0});
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_G)
             {
                  
-                _data._hue_val = TFT_GREEN;
+                _data._hue_val = NeoLED::hueValue( (NeoLED::Pixel){255, 0, 0});;
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_B)
             {
                  
-                _data._hue_val = TFT_BLUE;
+                _data._hue_val = NeoLED::hueValue( (NeoLED::Pixel){0, 0, 254});;;
                 _data.current_state = state_manual;
             }
             else if (_data.hal->keyboard()->getKeyValue(pressing_key).value_num_first == KEY_A)
@@ -175,6 +177,10 @@ void AppLed::onRunning()
     {
         _data.hal->playNextSound();
         spdlog::info("quit LED"); 
+        NeoLED::Pixel off_pixel = NeoLED::makePixel(0,0,0);
+        NeoLED::update(&off_pixel); 
+        NeoLED::destroy(); 
+        delay(100); // delay bit to off the LED
         destroyApp();
     }
 }
@@ -182,8 +188,5 @@ void AppLed::onRunning()
 
 void AppLed::onDestroy()
 {
-    NeoLED::destroy();
-    NeoLED::Pixel green_pixel = NeoLED::makePixel(0,0,0);
-    NeoLED::update(&green_pixel); 
-    spdlog::info(" Disto");
+    NeoLED::destroy();  
 }

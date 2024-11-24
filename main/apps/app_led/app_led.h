@@ -46,10 +46,7 @@ namespace MOONCAKE
                     float offset = 0;
                     int last_key_num = 0;
                 };
-                Data_t _data;
-                void send_ws2812b_data(uint8_t red, uint8_t green, uint8_t blue);
-                void ws2812b_encode_color(uint8_t red, uint8_t green, uint8_t blue, rmt_item32_t* items);
-                void init_rmt_ws2812();
+                Data_t _data; 
             public:
                 void onCreate() override;
                 void onResume() override;
