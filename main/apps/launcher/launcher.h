@@ -83,6 +83,7 @@ namespace MOONCAKE
                 std::string wifi_password;
                 bool _alreay_connected = false; 
                 bool web_redio_runing = false; 
+                uint8_t _retry_count = 0;
                 uint8_t _brightness = 127;
 
                 char string_buffer[100];
@@ -93,6 +94,7 @@ namespace MOONCAKE
 
             void _start_menu();
             void _update_menu();
+            void wakeUpScreenIfNeeded();
             void _set_config();
 
 

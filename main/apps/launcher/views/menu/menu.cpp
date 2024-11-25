@@ -93,14 +93,22 @@ void Launcher::_update_menu()
     if ((millis() - _data.menu_update_count) > _data.menu_update_preiod)
     {
         // Navigate
-        if (_port_check_last_pressed())
+        if (_port_check_last_pressed()){ 
+            wakeUpScreenIfNeeded();
             _data.menu->goLast();
-        else if (_port_check_next_pressed())
+        }
+            
+
+        else if (_port_check_next_pressed()){
+            wakeUpScreenIfNeeded(); 
             _data.menu->goNext();
+        }
+           
 
         // If pressed enter
         else if (_port_check_key_pressed(42))
         {
+            wakeUpScreenIfNeeded();
             auto selected_item = _data.menu->getSelector()->getTargetItem();
             selected_item++;
 
@@ -142,12 +150,27 @@ void Launcher::_update_menu()
             _data._brightness += 64;
             _data.hal->display()->setBrightness(_data._brightness);
         }
-
+        else if (_port_check_key_pressed(31))   // B for brightness
+        {
+            _data._brightness = 0;
+            _data.hal->display()->setBrightness(_data._brightness);
+           
+        } 
+        
         // Update menu
         _data.menu->update(millis());
         _data.hal->canvas_update();
 
         // Reset flag
         _data.menu_update_count = millis();
+    }
+}
+
+void MOONCAKE::APPS::Launcher::wakeUpScreenIfNeeded()
+{
+    if (_data._brightness == 0)
+    {
+        _data._brightness = 64;
+        _data.hal->display()->setBrightness(_data._brightness);
     }
 }

@@ -30,8 +30,8 @@ void Launcher::onCreate()
     _boot_anim();
     _start_menu();
     _start_system_bar();
-    _start_keyboard_bar();
-    
+    _start_keyboard_bar(); 
+    _set_config();
 
     // Allow background running 
     setAllowBgRunning(true);

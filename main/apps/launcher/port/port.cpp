@@ -335,8 +335,11 @@ void Launcher::_set_config()
           _data.wifi_ssid = _data.hal->getWifiSSID();
           _data.wifi_password = _data.hal->getWifiPassword(); 
 
-        if (!_data.hal->isWifiConnected()) {
+        if (!_data.hal->isWifiConnected() && _data._retry_count < 3) {
+            _data._retry_count ++;
             spdlog::info("Start wifi connection ... ");
+            spdlog::info(_data._retry_count);
+           
             WiFi.begin(_data.hal->getWifiSSID(), _data.hal->getWifiPassword());
             WiFi.waitForConnectResult(20 * 1000);
             // @todo logic to stop connecting after N number of fail attempts 
@@ -344,6 +347,7 @@ void Launcher::_set_config()
         if (WiFi.status() == WL_CONNECTED) {
              spdlog::info("connected to : {} ",WIFI_SSID); 
              _data.hal->setWifiConnected(true);
+             _data._retry_count = 0;
             if (!esp_sntp_enabled()) {
                 setenv("TZ", TIME_ZONE, 1);
                 tzset();
@@ -354,6 +358,11 @@ void Launcher::_set_config()
                _data.hal->setSntpAdjusted(true);
               spdlog::info("Done ");
             } 
+        }else{
+            WiFi.disconnect(true);
+            WiFi.setAutoReconnect(true);
+            _data.hal->setWifiConnected(false);
+            _data._retry_count ++;
         } 
         }
        

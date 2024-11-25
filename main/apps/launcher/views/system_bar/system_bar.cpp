@@ -33,8 +33,7 @@ using namespace MOONCAKE::APPS;
 void Launcher::_start_system_bar()
 {
     // _data.hal->canvas_system_bar()->fillScreen(TFT_BLUE);
-     spdlog::info("Start wifi connection ... ");
-     _set_config();
+   
 }
 
 void Launcher::_update_system_bar()
