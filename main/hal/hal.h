@@ -22,8 +22,8 @@
 // USER - CONFIG EDIT
 #define TONE_CHANNEL 6
 #define TIME_ZONE "UTC-5:30"
-#define WIFI_SSID "M5Stak"
-#define WIFI_PASS  "abc1234"
+#define WIFI_SSID "Sitrus - Upstairs"
+#define WIFI_PASS  "E#WCbw24"
 // USER - CONFIG EDIT
 
 namespace HAL

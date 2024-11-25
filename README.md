@@ -46,7 +46,7 @@ These improvements aim to make the project more stable, user-friendly, and easie
 ## To-Do List
 Below is the roadmap of planned apps and enhancements:
 
-- [ ] Screen Off / Charging Mode (to avoid screen burn-in).
+- [x] Screen Off / Charging Mode (to avoid screen burn-in). press A key for goto screen sleep / B for screen light adjustment / navigation keys will switch on the screen  
 - [x] Support for Built-in LED Notifications. [NeoLED](https://github.com/lahirunirmalx/NeoLED)
 - [ ] Save and load user preferences.
 - [ ] Calculator App.
