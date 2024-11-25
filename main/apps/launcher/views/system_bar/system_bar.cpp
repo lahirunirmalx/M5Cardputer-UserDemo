@@ -25,6 +25,8 @@
 #include "assets/wifi4.h"
 #include "assets/wifi5.h"
 #include "assets/redio.h"
+#include "assets/sdcard1.h"
+#include "assets/sdcard0.h"
 
 using namespace MOONCAKE::APPS;
 
@@ -78,6 +80,11 @@ void Launcher::_update_system_bar()
         );
         if(_data.web_redio_runing){
              _data.hal->canvas_system_bar()->pushImage(75, 5, 16, 16, redio1); 
+        } 
+        if(_data.hal->sdcard()->is_mounted()){
+             _data.hal->canvas_system_bar()->pushImage(95, 5, 16, 16, image_data_sdcard0); 
+        } else{
+             _data.hal->canvas_system_bar()->pushImage(95, 5, 16, 16, image_data_sdcard1); 
         } 
          
 
