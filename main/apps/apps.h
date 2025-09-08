@@ -24,3 +24,4 @@
 #include "app_texteditor/app_texteditor.h"
 #include "app_hello/app_hello.h"
 #include "app_led/app_led.h"
+#include "app_files/app_files.h"
