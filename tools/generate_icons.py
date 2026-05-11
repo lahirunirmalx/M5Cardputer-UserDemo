@@ -594,6 +594,110 @@ def draw_tictactoe(im):
            fill=(220, 60, 60), width=max(2, round(s * 3 / 56)))
     return im
 
+# ---------- TV-B-Gone ----------
+def draw_tvbgone(im):
+    d = ImageDraw.Draw(im)
+    s = im.size[0]
+    # IR remote (dark, vertical) on the left side, pointing right.
+    rem_x0 = round(s * 4  / 56)
+    rem_x1 = round(s * 22 / 56)
+    rem_y0 = round(s * 12 / 56)
+    rem_y1 = round(s * 48 / 56)
+    fill_rounded_gradient(im, rem_x0, rem_y0, rem_x1, rem_y1,
+                          round(s*3/56), (60, 60, 72), (24, 24, 32))
+    d.rounded_rectangle((rem_x0, rem_y0, rem_x1, rem_y1),
+                        radius=round(s*3/56), outline=(12, 12, 18), width=1)
+    # red power button at top of remote
+    pcx = (rem_x0 + rem_x1) // 2
+    pcy = rem_y0 + round(s*4/56)
+    pr  = round(s*2.5/56)
+    d.ellipse((pcx - pr - 1, pcy - pr - 1, pcx + pr + 1, pcy + pr + 1), fill=(120, 20, 20))
+    d.ellipse((pcx - pr,     pcy - pr,     pcx + pr,     pcy + pr),     fill=(232, 60, 60))
+    # button matrix
+    btn_c = (180, 180, 195)
+    for ry in range(3):
+        for cx in range(2):
+            bx = rem_x0 + round(s*3/56) + cx * round(s*7/56)
+            by = rem_y0 + round(s*12/56) + ry * round(s*8/56)
+            d.rounded_rectangle((bx, by, bx + round(s*4/56), by + round(s*4/56)),
+                                radius=1, fill=btn_c)
+    # IR emitter at top, plus 3 concentric arc beams shooting to the right
+    em_cx = rem_x1 + 1
+    em_cy = rem_y0 + round(s*5/56)
+    d.ellipse((em_cx - 2, em_cy - 2, em_cx + 2, em_cy + 2), fill=(255, 240, 120))
+    # beams - arc segments from emitter expanding rightward
+    beam = (180, 240, 80)
+    for r in (round(s*6/56), round(s*11/56), round(s*16/56)):
+        d.arc((em_cx - r, em_cy - r, em_cx + r, em_cy + r),
+              start=300, end=60, fill=beam, width=max(1, round(s*1/56)))
+    # TV on the right with a red OFF cross / power glyph
+    tv_x0 = round(s * 34 / 56)
+    tv_x1 = round(s * 52 / 56)
+    tv_y0 = round(s * 24 / 56)
+    tv_y1 = round(s * 44 / 56)
+    fill_rounded_gradient(im, tv_x0, tv_y0, tv_x1, tv_y1, round(s*2/56),
+                          (50, 50, 60), (18, 18, 26))
+    d.rounded_rectangle((tv_x0, tv_y0, tv_x1, tv_y1),
+                        radius=round(s*2/56), outline=(0, 0, 0), width=1)
+    # tv stand legs
+    leg_y0 = tv_y1 + 1
+    leg_y1 = tv_y1 + round(s*3/56)
+    d.rectangle((tv_x0 + 2, leg_y0, tv_x0 + 4, leg_y1), fill=(40, 40, 50))
+    d.rectangle((tv_x1 - 4, leg_y0, tv_x1 - 2, leg_y1), fill=(40, 40, 50))
+    # red dot on tv = "off"
+    pcx2 = (tv_x0 + tv_x1) // 2
+    pcy2 = (tv_y0 + tv_y1) // 2
+    pr2  = round(s*2.5/56)
+    d.ellipse((pcx2 - pr2, pcy2 - pr2, pcx2 + pr2, pcy2 + pr2), fill=(232, 60, 60))
+    return im
+
+# ---------- BLE Pair (sparkle / broadcast) ----------
+def draw_blepair(im):
+    d = ImageDraw.Draw(im)
+    s = im.size[0]
+    # Phone in the bottom-right corner (target)
+    ph_x0 = round(s * 28 / 56)
+    ph_x1 = round(s * 50 / 56)
+    ph_y0 = round(s * 14 / 56)
+    ph_y1 = round(s * 50 / 56)
+    fill_rounded_gradient(im, ph_x0, ph_y0, ph_x1, ph_y1, round(s*3/56),
+                          (40, 40, 50), (16, 16, 22))
+    d.rounded_rectangle((ph_x0, ph_y0, ph_x1, ph_y1),
+                        radius=round(s*3/56), outline=(0, 0, 0), width=1)
+    # phone screen (light)
+    scr_x0 = ph_x0 + round(s*1.5/56)
+    scr_x1 = ph_x1 - round(s*1.5/56)
+    scr_y0 = ph_y0 + round(s*3/56)
+    scr_y1 = ph_y1 - round(s*3/56)
+    d.rounded_rectangle((scr_x0, scr_y0, scr_x1, scr_y1), radius=1,
+                        fill=(200, 220, 255))
+    # tiny "pair" prompt rectangle on screen
+    pr_x0 = scr_x0 + 2
+    pr_x1 = scr_x1 - 2
+    pr_y0 = (scr_y0 + scr_y1) // 2 - round(s*3/56)
+    pr_y1 = (scr_y0 + scr_y1) // 2 + round(s*3/56)
+    d.rectangle((pr_x0, pr_y0, pr_x1, pr_y1), fill=(80, 100, 160))
+    # BLE antenna icon on the left emitting waves
+    ant_cx = round(s * 12 / 56)
+    ant_cy = round(s * 28 / 56)
+    blue   = (96, 160, 255)
+    # antenna stick
+    d.line((ant_cx, ant_cy - round(s*6/56), ant_cx, ant_cy + round(s*6/56)),
+           fill=blue, width=max(2, round(s*2/56)))
+    d.ellipse((ant_cx - 2, ant_cy - round(s*8/56),
+               ant_cx + 2, ant_cy - round(s*5/56)),
+              fill=blue)
+    # broadcast arcs - cyan/blue, expanding to the right toward the phone
+    for r in (round(s*7/56), round(s*12/56), round(s*17/56)):
+        d.arc((ant_cx - r, ant_cy - r, ant_cx + r, ant_cy + r),
+              start=300, end=60, fill=(120, 200, 255), width=max(1, round(s*1/56)))
+    # white sparkle near antenna
+    sp = round(s*2/56)
+    d.ellipse((ant_cx - sp, ant_cy - round(s*10/56) - sp,
+               ant_cx + sp, ant_cy - round(s*10/56) + sp),
+              fill=(255, 255, 255))
+    return im
+
 ICONS = [
     ("calc",        draw_calc,       "app_calculator/assets", "calc",      "image_data_calc"),
     ("resistor",    draw_resistor,   "app_resistor/assets",   "resistor",  "image_data_resistor"),
@@ -605,6 +709,8 @@ ICONS = [
     ("sysinfo",     draw_sysinfo,    "app_sysinfo/assets",    "sysinfo",   "image_data_sysinfo"),
     ("snake",       draw_snake,      "app_snake/assets",      "snake",     "image_data_snake"),
     ("tictactoe",   draw_tictactoe,  "app_tictactoe/assets",  "tictactoe", "image_data_tictactoe"),
+    ("tvbgone",     draw_tvbgone,    "app_tvbgone/assets",    "tvbgone",   "image_data_tvbgone"),
+    ("blepair",     draw_blepair,    "app_blepair/assets",    "blepair",   "image_data_blepair"),
 ]
 
 def main():

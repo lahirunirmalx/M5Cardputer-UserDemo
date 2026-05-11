@@ -33,3 +33,4 @@
 #include "app_sysinfo/app_sysinfo.h"
 #include "app_snake/app_snake.h"
 #include "app_tictactoe/app_tictactoe.h"
+#include "app_tvbgone/app_tvbgone.h"
