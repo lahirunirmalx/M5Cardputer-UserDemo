@@ -74,7 +74,7 @@ class AudioOutputM5Speaker : public AudioOutput
     }
 
     const int16_t* getBuffer(void) const { return _tri_buffer[(_tri_index + 2) % 3]; }
-    const uint32_t getUpdateCount(void) const { return _update_count; }
+    uint32_t getUpdateCount(void) const { return _update_count; }
 
     m5::Speaker_Class* _m5sound;
   protected:

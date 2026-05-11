@@ -19,8 +19,6 @@
 #include "assets/led_big.h"
 #include "assets/led_small.h"
 
-#define FILTER_WINDOW_SIZE 256
-
 namespace MOONCAKE
 {
     namespace APPS
@@ -38,13 +36,12 @@ namespace MOONCAKE
                 struct Data_t
                 {
                     HAL::Hal* hal = nullptr;
-                    State_t current_state = state_init; 
+                    State_t current_state = state_init;
                     int64_t _last_update = 0;
-                    float filter_window[FILTER_WINDOW_SIZE];
-                    uint16_t _filter_window_i = 0;
                     uint8_t _hue_val = 0;
-                    float offset = 0;
                     int last_key_num = 0;
+                    bool neo_inited = false;      /* NeoLED init done once */
+                    bool mic_was_running = false; /* mic was released for I2S0 */
                 };
                 Data_t _data; 
             public:

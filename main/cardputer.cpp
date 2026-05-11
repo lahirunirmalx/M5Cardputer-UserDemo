@@ -126,6 +126,14 @@ extern "C" void app_main(void)
     mooncake.installApp(new APPS::AppHello_Packer);
     mooncake.installApp(new APPS::AppLed_Packer);
     mooncake.installApp(new APPS::AppFilesManager_Packer);
+    mooncake.installApp(new APPS::AppMp3_Packer);
+    mooncake.installApp(new APPS::AppCalculator_Packer);
+    mooncake.installApp(new APPS::AppResistor_Packer);
+    mooncake.installApp(new APPS::AppGemini_Packer);
+    mooncake.installApp(new APPS::AppTorch_Packer);
+    mooncake.installApp(new APPS::AppSysinfo_Packer);
+    mooncake.installApp(new APPS::AppSnake_Packer);
+    mooncake.installApp(new APPS::AppTicTacToe_Packer);
 
     // Create launcher
     mooncake.createApp(launcher);
