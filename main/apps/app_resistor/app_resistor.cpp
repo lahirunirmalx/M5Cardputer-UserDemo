@@ -211,6 +211,7 @@ void AppResistor::_draw()
     _canvas->fillRect(BODY_X + BODY_W, LEAD_Y - LEAD_T / 2, cw - (BODY_X + BODY_W), LEAD_T, COLOR_LEAD);
     _canvas->fillSmoothRoundRect(BODY_X, BODY_Y, BODY_W, BODY_H, BODY_R, COLOR_BODY);
 
+    static const char* BAND_TAGS[4] = { "D1", "D2", "xN", "+-" };
     for (int i = 0; i < 4; i++) {
         int x = BANDS_X0 + i * (BAND_W + BAND_GAP);
         uint8_t idx;
@@ -220,17 +221,28 @@ void AppResistor::_draw()
             uint32_t c = BAND_COLORS[idx];
             _canvas->fillRect(x, BAND_Y, BAND_W, BAND_H, c);
             if (i == _data.selected_band) {
+                /* Thick accent border + downward caret above the band */
                 _canvas->drawRect(x - 2, BAND_Y - 2, BAND_W + 4, BAND_H + 4, COLOR_ACCENT);
                 _canvas->drawRect(x - 1, BAND_Y - 1, BAND_W + 2, BAND_H + 2, COLOR_ACCENT);
+                int cx_arrow = x + BAND_W / 2;
+                int ay = BAND_Y - 6;
+                _canvas->fillTriangle(cx_arrow - 3, ay, cx_arrow + 3, ay, cx_arrow, ay + 4, COLOR_ACCENT);
             }
         }
+        /* Small role tag under the band (D1/D2/xN/+-) */
+        _canvas->setFont(FONT_SMALL);
+        uint32_t tag_col = (i == _data.selected_band) ? COLOR_ACCENT : COLOR_DIM_TEXT;
+        _canvas->setTextColor(tag_col, THEME_COLOR_BG);
+        int tw = _canvas->textWidth(BAND_TAGS[i]);
+        _canvas->setCursor(x + (BAND_W - tw) / 2, BAND_Y + BAND_H + 2);
+        _canvas->print(BAND_TAGS[i]);
     }
 
     /* Footer */
     _canvas->setFont(FONT_SMALL);
     _canvas->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
     _canvas->setCursor(3, FOOTER_Y);
-    _canvas->print("1-4 BAND  0-9 VAL  G/S  HOME");
+    _canvas->print("<>band  ^v val  0-9 set  G/S  HOME");
 
     _canvas_update();
 }
@@ -254,32 +266,55 @@ void AppResistor::onRunning()
             const auto& hid = _keyboard->keysState().hidKey;
 
             for (int k : hid) {
-                if (k >= KEY_1 && k <= KEY_4) {
-                    _data.selected_band = (uint8_t)(k - KEY_1);
+                /* Navigation: left/right switches band */
+                if (k == KEY_LEFT) {
+                    if (_data.selected_band > 0) _data.selected_band--;
                     _draw();
                     goto key_done;
                 }
+                if (k == KEY_RIGHT) {
+                    if (_data.selected_band < 3) _data.selected_band++;
+                    _draw();
+                    goto key_done;
+                }
+
+                /* Value: up/down increments/decrements the current band's index.
+                 * Range per band:
+                 *   0,1 (digit bands)  -> 0..9
+                 *   2   (multiplier)   -> 0..11 (incl. gold=10, silver=11)
+                 *   3   (tolerance)    -> 0..3 (+-1, +-2, +-5, +-10) */
+                int max_idx = (_data.selected_band == 2) ? 11
+                            : (_data.selected_band == 3) ? 3 : 9;
+                if (k == KEY_UP) {
+                    uint8_t v = _data.band[_data.selected_band];
+                    v = (v >= max_idx) ? 0 : (uint8_t)(v + 1);
+                    _data.band[_data.selected_band] = v;
+                    _draw();
+                    goto key_done;
+                }
+                if (k == KEY_DOWN) {
+                    uint8_t v = _data.band[_data.selected_band];
+                    v = (v == 0) ? (uint8_t)max_idx : (uint8_t)(v - 1);
+                    _data.band[_data.selected_band] = v;
+                    _draw();
+                    goto key_done;
+                }
+
+                /* Direct numeric entry (works on all bands now since band selection
+                 * uses arrows, not 1-4 keys). */
                 if (k >= KEY_0 && k <= KEY_9) {
                     int digit = (k == KEY_0) ? 0 : (k - KEY_1 + 1);
-                    if (_data.selected_band == 0 || _data.selected_band == 1) {
+                    if (_data.selected_band <= 2) {
                         _data.band[_data.selected_band] = (uint8_t)(digit <= 9 ? digit : 0);
-                        _draw();
-                        goto key_done;
-                    }
-                    if (_data.selected_band == 2) {
-                        _data.band[2] = (uint8_t)(digit <= 9 ? digit : 0);
-                        _draw();
-                        goto key_done;
-                    }
-                    if (_data.selected_band == 3) {
-                        /* 1->1% (idx 0), 2->2% (idx 1), 5->5% (idx 2), 0->10% (idx 3) */
-                        if (k == KEY_0) _data.band[3] = 3;
+                    } else if (_data.selected_band == 3) {
+                        /* tolerance: 1->1% (idx 0), 2->2% (1), 5->5% (2), 0->10% (3) */
+                        if (k == KEY_0)      _data.band[3] = 3;
                         else if (k == KEY_1) _data.band[3] = 0;
                         else if (k == KEY_2) _data.band[3] = 1;
                         else if (k == KEY_5) _data.band[3] = 2;
-                        _draw();
-                        goto key_done;
                     }
+                    _draw();
+                    goto key_done;
                 }
                 if (k == KEY_G && _data.selected_band == 2) { _data.band[2] = 10; _draw(); goto key_done; }
                 if (k == KEY_S && _data.selected_band == 2) { _data.band[2] = 11; _draw(); goto key_done; }
