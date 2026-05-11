@@ -29,11 +29,12 @@ class AppFilesManager : public APP_BASE
 {
     enum State_t {
         state_init,
-        state_list,      /* browsing directory */
-        state_detail,    /* file/folder info */
-        state_newfolder, /* input new folder name */
-        state_rename,    /* input new name */
-        state_message    /* show message, Enter to close */
+        state_list,            /* browsing directory */
+        state_detail,          /* file/folder info */
+        state_newfolder,       /* input new folder name */
+        state_rename,          /* input new name */
+        state_message,         /* show message, Enter to close */
+        state_confirm_delete   /* Y/N confirm before deleting */
     };
 
     struct Data_t {
@@ -50,7 +51,9 @@ class AppFilesManager : public APP_BASE
         /* line input for newfolder / rename */
         std::string input_line;
         std::string rename_old_path;         /* full path when renaming */
-        std::string message_text;           /* for state_message */
+        std::string message_text;            /* for state_message */
+        std::string pending_delete_path;     /* full path queued for confirm */
+        std::string pending_delete_name;     /* basename for the prompt */
     };
     Data_t _data;
 
@@ -59,6 +62,7 @@ class AppFilesManager : public APP_BASE
     void _draw_detail(const FileEntry& e);
     void _draw_input_prompt(const char* prompt);
     void _draw_title(const char* title);
+    void _draw_confirm_delete();
     static void _format_size(const FileEntry& e, char* out, size_t out_size);
     bool _path_full(std::string& out, const std::string& rel) const;
     bool _path_join(std::string& out, const std::string& rel, const std::string& name) const;

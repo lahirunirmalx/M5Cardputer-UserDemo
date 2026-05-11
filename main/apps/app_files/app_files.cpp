@@ -127,18 +127,6 @@ void AppFilesManager::_draw_list()
     _canvas->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
     _canvas->drawRightString(path_display.c_str(), cw - 4, CHIP_Y, FONT_SMALL);
 
-    /* Clipboard indicator just under title-right when set */
-    if (!_data.clipboard_path.empty()) {
-        const char* base = strrchr(_data.clipboard_path.c_str(), '/');
-        base = base ? base + 1 : _data.clipboard_path.c_str();
-        char cbbuf[28];
-        snprintf(cbbuf, sizeof(cbbuf), "%s:%s",
-                 _data.clipboard_is_move ? "MV" : "CP", base);
-        if (strlen(cbbuf) > 26) cbbuf[26] = '\0';
-        _canvas->setTextColor(COLOR_ACCENT, THEME_COLOR_BG);
-        _canvas->drawRightString(cbbuf, cw - 4, CHIP_Y + 10, FONT_SMALL);
-    }
-
     /* List panel */
     _canvas->fillSmoothRoundRect(2, PANEL_Y, cw - 4, PANEL_H, 4, COLOR_PANEL_BG);
 
@@ -201,11 +189,55 @@ void AppFilesManager::_draw_list()
         }
     }
 
-    /* Footer hint */
+    /* Footer hint - context-aware: surfaces a "Paste pending" badge when
+     * something is on the clipboard, otherwise the normal key cheatsheet. */
     _canvas->setFont(FONT_SMALL);
+    _canvas->setCursor(3, FOOTER_Y);
+    if (!_data.clipboard_path.empty()) {
+        const char* base = strrchr(_data.clipboard_path.c_str(), '/');
+        base = base ? base + 1 : _data.clipboard_path.c_str();
+        char fbuf[40];
+        snprintf(fbuf, sizeof(fbuf), "%s %.20s | P paste",
+                 _data.clipboard_is_move ? "MV" : "CP", base);
+        _canvas->setTextColor(COLOR_ACCENT, THEME_COLOR_BG);
+        _canvas->print(fbuf);
+    } else {
+        _canvas->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
+        _canvas->print("^v ENT BK  N I C M R D P  HOME");
+    }
+
+    _canvas_update();
+}
+
+void AppFilesManager::_draw_confirm_delete()
+{
+    _canvas_clear();
+    int cw = _canvas->width();
+
+    _draw_title("Delete?");
+    _canvas->fillSmoothRoundRect(2, PANEL_Y, cw - 4, PANEL_H, 4, COLOR_PANEL_BG);
+
+    _canvas->setFont(FONT_SMALL);
+    _canvas->setTextColor(COLOR_DIM_TEXT, COLOR_PANEL_BG);
+    _canvas->setCursor(6, PANEL_Y + 8);
+    _canvas->print("Permanently delete this item?");
+
+    _canvas->setFont(FONT_REPL);
+    _canvas->setTextColor(COLOR_WARN, COLOR_PANEL_BG);
+    std::string nm = _data.pending_delete_name;
+    if (nm.size() > 24) nm = nm.substr(0, 21) + "...";
+    int tw = _canvas->textWidth(nm.c_str());
+    _canvas->setCursor((cw - tw) / 2, PANEL_Y + 28);
+    _canvas->print(nm.c_str());
+
+    _canvas->setFont(FONT_SMALL);
+    _canvas->setTextColor(COLOR_ERR, COLOR_PANEL_BG);
+    _canvas->setCursor(6, PANEL_Y + 54);
+    _canvas->print("This cannot be undone.");
+
     _canvas->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
     _canvas->setCursor(3, FOOTER_Y);
-    _canvas->print("^v ENT BK  N I C M R D P  HOME");
+    _canvas->print("Y delete   N / Esc cancel");
 
     _canvas_update();
 }
@@ -540,14 +572,12 @@ void AppFilesManager::onRunning()
                 }
             } else if (v == KEY_D) {
                 if (!_data.entries.empty()) {
-                    std::string full;
-                    _path_join(full, _data.current_path, _data.entries[_data.selected_index].name);
-                    if (_do_delete(full.c_str())) {
-                        _refresh_list();
-                        _draw_list();
-                    } else {
-                        _message("Delete failed");
-                    }
+                    _data.pending_delete_path.clear();
+                    _path_join(_data.pending_delete_path, _data.current_path,
+                               _data.entries[_data.selected_index].name);
+                    _data.pending_delete_name = _data.entries[_data.selected_index].name;
+                    _data.current_state = state_confirm_delete;
+                    _draw_confirm_delete();
                 }
             }
             _data.last_key_num = _keyboard->keyList().size();
@@ -638,6 +668,31 @@ void AppFilesManager::onRunning()
         _keyboard->updateKeyList();
         if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
             if (_keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER) {
+                _data.current_state = state_list;
+                _draw_list();
+            }
+            _data.last_key_num = _keyboard->keyList().size();
+        }
+    }
+
+    else if (_data.current_state == state_confirm_delete) {
+        _keyboard->updateKeyList();
+        if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
+            int v = _keyboard->getKeyValue(_keyboard->getKey()).value_num_first;
+            if (v == KEY_Y) {
+                bool ok = _do_delete(_data.pending_delete_path.c_str());
+                _data.pending_delete_path.clear();
+                _data.pending_delete_name.clear();
+                if (ok) {
+                    _data.current_state = state_list;
+                    _refresh_list();
+                    _draw_list();
+                } else {
+                    _message("Delete failed");
+                }
+            } else if (v == KEY_N || v == KEY_ESC) {
+                _data.pending_delete_path.clear();
+                _data.pending_delete_name.clear();
                 _data.current_state = state_list;
                 _draw_list();
             }
