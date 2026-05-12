@@ -30,7 +30,7 @@ static const char* NVS_NAMESPACE = "gemini";
 static const char* NVS_KEY_API   = "apikey";
 static constexpr size_t API_KEY_MAX = 128;
 static constexpr size_t REPLY_MAX   = 500;
-static const char* GEMINI_MODEL = "gemma-3-1b-it";
+static const char* GEMINI_MODEL = "gemini-2.0-flash";
 
 /* Layout (canvas 206x109) */
 static constexpr int TITLE_Y     = 1;
