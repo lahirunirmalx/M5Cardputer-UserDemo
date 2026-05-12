@@ -37,14 +37,8 @@ static constexpr int LIST_LINE_H  = 11;
 static constexpr int LIST_LINES   = 3;
 static constexpr int FOOTER_Y     = 100;
 
-/* 7-segment digit geometry (same as calculator/resistor) */
-static constexpr int SEG_DW    = 12;
-static constexpr int SEG_DH    = 19;
-static constexpr int SEG_ST    = 3;
-static constexpr int SEG_GAP   = 2;
-static constexpr int SEG_DOT_W = 3;
-static constexpr int SEG_HALF  = (SEG_DH - SEG_ST) / 2;
-static constexpr int SEG_VLEN  = SEG_HALF - SEG_ST;
+/* 7-segment geometry lives in the shared SEVEN_SEG namespace */
+#include "../utils/seven_seg/seven_seg.h"
 
 static const uint32_t COLOR_ACCENT      = (uint32_t)0x99FF00;
 static const uint32_t COLOR_DISPLAY_BG  = (uint32_t)0x1E1E22;
@@ -84,75 +78,6 @@ bool AudioOutputM5Speaker::stop(void)
     return true;
 }
 
-/* ----- 7-segment helpers ----- */
-void AppMp3::_draw_7seg_char(char c, int x, int y, uint32_t on, uint32_t off)
-{
-    static const uint8_t SEGS[10] = {
-        0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
-    };
-    uint8_t m;
-    if (c >= '0' && c <= '9') m = SEGS[c - '0'];
-    else if (c == '-')        m = 0x40;
-    else                      m = 0;
-
-    uint32_t ca = (m & 0x01) ? on : off;
-    uint32_t cb = (m & 0x02) ? on : off;
-    uint32_t cc = (m & 0x04) ? on : off;
-    uint32_t cd = (m & 0x08) ? on : off;
-    uint32_t ce = (m & 0x10) ? on : off;
-    uint32_t cf = (m & 0x20) ? on : off;
-    uint32_t cg = (m & 0x40) ? on : off;
-
-    int iw = SEG_DW - 2 * SEG_ST;
-    _canvas->fillRect(x + SEG_ST,          y,                     iw, SEG_ST,   ca);
-    _canvas->fillRect(x,                   y + SEG_ST,            SEG_ST, SEG_VLEN, cf);
-    _canvas->fillRect(x + SEG_DW - SEG_ST, y + SEG_ST,            SEG_ST, SEG_VLEN, cb);
-    _canvas->fillRect(x + SEG_ST,          y + SEG_HALF,          iw, SEG_ST,   cg);
-    _canvas->fillRect(x,                   y + SEG_HALF + SEG_ST, SEG_ST, SEG_VLEN, ce);
-    _canvas->fillRect(x + SEG_DW - SEG_ST, y + SEG_HALF + SEG_ST, SEG_ST, SEG_VLEN, cc);
-    _canvas->fillRect(x + SEG_ST,          y + SEG_DH - SEG_ST,   iw, SEG_ST,   cd);
-}
-
-int AppMp3::_seg_str_width(const char* s)
-{
-    int n = (int)strlen(s);
-    int total = 0;
-    for (int i = 0; i < n; i++) {
-        char c = s[i];
-        if (c == ':')      total += SEG_ST + SEG_GAP;
-        else if (c == '.') total += SEG_DOT_W + SEG_GAP;
-        else if (c == ' ') total += SEG_DW / 2 + SEG_GAP;
-        else               total += SEG_DW + SEG_GAP;
-    }
-    if (total > 0) total -= SEG_GAP;
-    return total;
-}
-
-void AppMp3::_draw_7seg_str(const char* s, int right_x, int y, uint32_t on, uint32_t off)
-{
-    int total_w = _seg_str_width(s);
-    int x = right_x - total_w;
-    int n = (int)strlen(s);
-    for (int i = 0; i < n; i++) {
-        char c = s[i];
-        if (c == ':') {
-            /* two small square dots inside top and bottom halves */
-            int dot_y1 = y + SEG_ST + (SEG_VLEN - SEG_ST) / 2;
-            int dot_y2 = y + SEG_HALF + SEG_ST + (SEG_VLEN - SEG_ST) / 2;
-            _canvas->fillRect(x, dot_y1, SEG_ST, SEG_ST, on);
-            _canvas->fillRect(x, dot_y2, SEG_ST, SEG_ST, on);
-            x += SEG_ST + SEG_GAP;
-        } else if (c == '.') {
-            _canvas->fillRect(x, y + SEG_DH - SEG_ST, SEG_DOT_W, SEG_ST, on);
-            x += SEG_DOT_W + SEG_GAP;
-        } else if (c == ' ') {
-            x += SEG_DW / 2 + SEG_GAP;
-        } else {
-            _draw_7seg_char(c, x, y, on, off);
-            x += SEG_DW + SEG_GAP;
-        }
-    }
-}
 
 /* ----- AppMp3 ----- */
 void AppMp3::_list_mp3()
@@ -277,10 +202,10 @@ void AppMp3::_draw()
     if (mn > 99) { mn = 99; sc = 59; }
     char tbuf[8];
     snprintf(tbuf, sizeof(tbuf), "%02d:%02d", mn, sc);
-    int tw = _seg_str_width(tbuf);
+    int tw = SEVEN_SEG::str_width(tbuf);
     int t_right = (cw + tw) / 2;
     uint32_t t_on = _data.playing ? COLOR_ACCENT : COLOR_DIM_TEXT;
-    _draw_7seg_str(tbuf, t_right, TIME_Y, t_on, COLOR_SEG_OFF);
+    SEVEN_SEG::draw_str(_canvas, tbuf, t_right, TIME_Y, t_on, COLOR_SEG_OFF);
 
     /* Progress bar */
     float progress = 0.0f;

@@ -34,8 +34,6 @@ class AppCalculator : public APP_BASE
 
     void _draw();
     void _draw_grid();
-    void _draw_7seg_char(char c, int x, int y, uint32_t on, uint32_t off);
-    void _draw_7seg_str(const char* s, int right_x, int y, uint32_t on, uint32_t off);
     void _apply_op();
     void _do_equals();
     void _clear();

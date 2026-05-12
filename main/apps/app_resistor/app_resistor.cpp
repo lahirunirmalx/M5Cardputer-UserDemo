@@ -45,14 +45,8 @@ static constexpr int LEAD_Y        = BODY_Y + BODY_H / 2;                    /* 
 static constexpr int LEAD_T        = 2;
 static constexpr int FOOTER_Y      = 100;
 
-/* 7-segment digit geometry (same as calculator) */
-static constexpr int SEG_DW    = 12;
-static constexpr int SEG_DH    = 19;
-static constexpr int SEG_ST    = 3;
-static constexpr int SEG_GAP   = 2;
-static constexpr int SEG_DOT_W = 3;
-static constexpr int SEG_HALF  = (SEG_DH - SEG_ST) / 2;
-static constexpr int SEG_VLEN  = SEG_HALF - SEG_ST;
+/* 7-segment geometry lives in the shared SEVEN_SEG namespace */
+#include "../utils/seven_seg/seven_seg.h"
 
 static const uint32_t COLOR_ACCENT     = (uint32_t)0x99FF00;
 static const uint32_t COLOR_BODY       = (uint32_t)0xC4A574;
@@ -88,63 +82,6 @@ double AppResistor::_compute_ohm() const
 {
     double base = (double)(_data.band[0] * 10 + _data.band[1]);
     return base * _multiplier(_data.band[2]);
-}
-
-/* Render one 7-segment glyph at (x, y). See app_calculator.cpp for the segment map. */
-void AppResistor::_draw_7seg_char(char c, int x, int y, uint32_t on, uint32_t off)
-{
-    static const uint8_t SEGS[10] = {
-        0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F
-    };
-    uint8_t m;
-    if (c >= '0' && c <= '9') m = SEGS[c - '0'];
-    else if (c == '-')        m = 0x40;
-    else if (c == ' ')        return;
-    else                      m = 0;
-
-    uint32_t ca = (m & 0x01) ? on : off;
-    uint32_t cb = (m & 0x02) ? on : off;
-    uint32_t cc = (m & 0x04) ? on : off;
-    uint32_t cd = (m & 0x08) ? on : off;
-    uint32_t ce = (m & 0x10) ? on : off;
-    uint32_t cf = (m & 0x20) ? on : off;
-    uint32_t cg = (m & 0x40) ? on : off;
-
-    int iw = SEG_DW - 2 * SEG_ST;
-    _canvas->fillRect(x + SEG_ST,          y,                     iw, SEG_ST,   ca);
-    _canvas->fillRect(x,                   y + SEG_ST,            SEG_ST, SEG_VLEN, cf);
-    _canvas->fillRect(x + SEG_DW - SEG_ST, y + SEG_ST,            SEG_ST, SEG_VLEN, cb);
-    _canvas->fillRect(x + SEG_ST,          y + SEG_HALF,          iw, SEG_ST,   cg);
-    _canvas->fillRect(x,                   y + SEG_HALF + SEG_ST, SEG_ST, SEG_VLEN, ce);
-    _canvas->fillRect(x + SEG_DW - SEG_ST, y + SEG_HALF + SEG_ST, SEG_ST, SEG_VLEN, cc);
-    _canvas->fillRect(x + SEG_ST,          y + SEG_DH - SEG_ST,   iw, SEG_ST,   cd);
-}
-
-void AppResistor::_draw_7seg_str(const char* s, int right_x, int y, uint32_t on, uint32_t off)
-{
-    int n = (int)strlen(s);
-    int total_w = 0;
-    for (int i = 0; i < n; i++) {
-        char c = s[i];
-        if (c == '.')      total_w += SEG_DOT_W + SEG_GAP;
-        else if (c == ' ') total_w += SEG_DW / 2 + SEG_GAP;
-        else               total_w += SEG_DW + SEG_GAP;
-    }
-    if (total_w > 0) total_w -= SEG_GAP;
-
-    int x = right_x - total_w;
-    for (int i = 0; i < n; i++) {
-        char c = s[i];
-        if (c == '.') {
-            _canvas->fillRect(x, y + SEG_DH - SEG_ST, SEG_DOT_W, SEG_ST, on);
-            x += SEG_DOT_W + SEG_GAP;
-        } else if (c == ' ') {
-            x += SEG_DW / 2 + SEG_GAP;
-        } else {
-            _draw_7seg_char(c, x, y, on, off);
-            x += SEG_DW + SEG_GAP;
-        }
-    }
 }
 
 void AppResistor::_draw()
@@ -199,7 +136,7 @@ void AppResistor::_draw()
     int unit_w = unit_buf[0] ? _canvas->textWidth(unit_buf) : 0;
     int unit_pad = unit_buf[0] ? 4 : 0;
     int seg_right = cw - 6 - unit_w - unit_pad;
-    _draw_7seg_str(num_buf, seg_right, SEG_Y, COLOR_ACCENT, COLOR_SEG_OFF);
+    SEVEN_SEG::draw_str(_canvas, num_buf, seg_right, SEG_Y, COLOR_ACCENT, COLOR_SEG_OFF);
     if (unit_buf[0]) {
         _canvas->setTextColor(COLOR_ACCENT, COLOR_DISPLAY_BG);
         _canvas->setCursor(cw - 6 - unit_w, SEG_Y + 2);

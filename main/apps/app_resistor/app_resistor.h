@@ -29,8 +29,6 @@ class AppResistor : public APP_BASE
     Data_t _data;
 
     void _draw();
-    void _draw_7seg_char(char c, int x, int y, uint32_t on, uint32_t off);
-    void _draw_7seg_str(const char* s, int right_x, int y, uint32_t on, uint32_t off);
     double _compute_ohm() const;
     static double _multiplier(uint8_t m);
 

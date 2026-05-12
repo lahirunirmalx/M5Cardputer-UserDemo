@@ -67,9 +67,6 @@ class AppMp3 : public APP_BASE
     void _play_current();
     void _stop();
     void _draw();
-    void _draw_7seg_char(char c, int x, int y, uint32_t on, uint32_t off);
-    void _draw_7seg_str(const char* s, int right_x, int y, uint32_t on, uint32_t off);
-    int  _seg_str_width(const char* s);
 
 public:
     void onCreate() override;
