@@ -28,15 +28,14 @@ namespace MOONCAKE
             private:
                 enum State_t
                 {
-                    state_init = 0,
-                    state_auto,
+                    state_auto = 0,
                     state_manual,
                 };
 
                 struct Data_t
                 {
                     HAL::Hal* hal = nullptr;
-                    State_t current_state = state_init;
+                    State_t current_state = state_manual;
                     int64_t _last_update = 0;
                     uint8_t _hue_val = 0;
                     int last_key_num = 0;

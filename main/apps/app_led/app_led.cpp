@@ -70,7 +70,7 @@ void AppLed::onCreate()
 void AppLed::onResume()
 {
     ANIM_APP_OPEN();
-    _data.current_state = state_init;
+    _data.current_state = state_manual;
     _data.neo_inited = false;
     _data.mic_was_running = false;
     _data._hue_val = 85;   /* start red */

@@ -252,7 +252,6 @@ void AppTicTacToe::onRunning()
             if (st.enter || st.space) {
                 if ((_data.state == GS_TURN_X || _data.state == GS_TURN_O) &&
                     _data.board[_data.cursor] == C_EMPTY) {
-                    bool human_x = true;
                     _data.board[_data.cursor] = (_data.state == GS_TURN_X) ? C_X : C_O;
                     _data.state = (_data.state == GS_TURN_X) ? GS_TURN_O : GS_TURN_X;
                     GameState s = _check_state();
@@ -271,7 +270,6 @@ void AppTicTacToe::onRunning()
                         else if (s == GS_O_WINS) _data.o_wins++;
                         else if (s == GS_DRAW) _data.draws++;
                     }
-                    (void)human_x;
                     _draw();
                 }
             } else {
