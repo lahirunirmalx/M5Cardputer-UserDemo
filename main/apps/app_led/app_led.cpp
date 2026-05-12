@@ -12,6 +12,7 @@
 #include <cstdio>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/gpio.h"
 #include "../utils/theme/theme_define.h"
 #include "../../hal/keyboard/keymap.h"
 #include "neoled.h"
@@ -123,12 +124,15 @@ void AppLed::onRunning()
             else if (v == KEY_G) { _data._hue_val = 255; _data.current_state = state_manual; changed = true; }
             else if (v == KEY_B) { _data._hue_val = 170; _data.current_state = state_manual; changed = true; }
             else if (v == KEY_A) { _data.current_state = state_auto; _data._last_update = 0; changed = true; }
-            else if (v == KEY_SEMICOLON) {
-                _data._hue_val = (uint8_t)(_data._hue_val + 1);
+            /* Cardputer has no physical arrow keys; ';' = up, '.' = down.
+             * KEY_UP/DOWN are kept for external HID keyboards. Step is 8 so
+             * each tap moves visibly across the 0..255 hue wheel. */
+            else if (v == KEY_SEMICOLON || v == KEY_UP) {
+                _data._hue_val = (uint8_t)(_data._hue_val + 8);
                 _data.current_state = state_manual;
                 changed = true;
-            } else if (v == KEY_DOT) {
-                _data._hue_val = (uint8_t)(_data._hue_val - 1);
+            } else if (v == KEY_DOT || v == KEY_DOWN) {
+                _data._hue_val = (uint8_t)(_data._hue_val - 8);
                 _data.current_state = state_manual;
                 changed = true;
             }
@@ -143,20 +147,28 @@ void AppLed::onRunning()
 
     if (_data.hal->homeButton()->pressed()) {
         _data.hal->playNextSound();
-        NeoLED::Pixel off = NeoLED::makePixel(0, 0, 0);
-        NeoLED::update(&off);
-        NeoLED::destroy();
-        if (_data.mic_was_running && _data.hal->mic()) {
-            _data.hal->mic()->begin();
-        }
-        delay(50);
         destroyApp();
     }
 }
 
 void AppLed::onDestroy()
 {
-    NeoLED::destroy();
+    /* Turn the NeoPixel off reliably. One write right before tearing down I2S
+     * sometimes fails to latch, so write twice with a >50us reset window in
+     * between, then pin the data line low so the LED can't pick up garbage
+     * when the driver is uninstalled. */
+    if (_data.neo_inited) {
+        NeoLED::Pixel off = NeoLED::makePixel(0, 0, 0);
+        NeoLED::update(&off);
+        vTaskDelay(pdMS_TO_TICKS(20));
+        NeoLED::update(&off);
+        vTaskDelay(pdMS_TO_TICKS(20));
+        NeoLED::destroy();
+        gpio_reset_pin((gpio_num_t)I2S_DO_IO);
+        gpio_set_direction((gpio_num_t)I2S_DO_IO, GPIO_MODE_OUTPUT);
+        gpio_set_level((gpio_num_t)I2S_DO_IO, 0);
+        _data.neo_inited = false;
+    }
     if (_data.mic_was_running && _data.hal && _data.hal->mic()) {
         _data.hal->mic()->begin();
     }
@@ -223,7 +235,7 @@ static void _draw_ui(AppLed* /*self*/, HAL::Hal* hal, uint8_t hue, bool auto_mod
     c->setFont(FONT_SMALL);
     c->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
     c->setCursor(3, FOOTER_Y);
-    c->print("A auto  R G B  ;/. hue  HOME");
+    c->print("A auto  R G B  ; . hue  HOME");
 
     hal->canvas_update();
 }
