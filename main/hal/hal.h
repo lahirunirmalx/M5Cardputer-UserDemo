@@ -15,16 +15,30 @@
 #include "speaker/Speaker_Class.hpp"
 #include "button/Button.h"
 #include "sdcard/sdcard.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include <iostream>
 #include <string>
+#include <cstring>
 
 
 // USER - CONFIG EDIT
 #define TONE_CHANNEL 6
 #define TIME_ZONE "UTC-5:30"
-#define WIFI_SSID "M5Stak"
-#define WIFI_PASS  "abc1234"
+/* WiFi credentials are NOT hardcoded any more. They live in NVS:
+ *   namespace "wifi", keys "ssid" and "pass".
+ * Use the Set WiFi app to edit them, or pre-flash via tools/flash_nvs.sh and
+ * tools/nvs_keys.csv. The compiled defaults below are empty so an un-flashed
+ * device starts with no creds and shows the Set WiFi prompt. */
+#define WIFI_SSID ""
+#define WIFI_PASS ""
 // USER - CONFIG EDIT
+
+/* NVS namespaces / keys used across the firmware. Keep them stable — they
+ * also appear in tools/nvs_keys.csv for pre-flash provisioning. */
+#define NVS_NS_WIFI    "wifi"
+#define NVS_KEY_SSID   "ssid"
+#define NVS_KEY_PASS   "pass"
 
 namespace HAL
 {
@@ -57,9 +71,33 @@ namespace HAL
         Hal()
             : _display(nullptr), _canvas(nullptr), _canvas_system_bar(nullptr), _canvas_keyboard_bar(nullptr),
               _keyboard(nullptr), _mic(nullptr), _speaker(nullptr), _homeButton(nullptr), _sdcard(nullptr),
-              _sntp_adjusted(false),_web_redio_runing(false),_wifi_connected(false),_wifi_ssid(WIFI_SSID),
-              _wifi_password(WIFI_PASS)
+              _sntp_adjusted(false),_web_redio_runing(false),_wifi_connected(false)
         {
+            _wifi_ssid[0] = '\0';
+            _wifi_password[0] = '\0';
+        }
+
+        /* Load WiFi creds from NVS (namespace "wifi"). Falls through silently
+         * if the namespace or keys are missing, leaving the buffers as they
+         * were (empty on a fresh boot). Safe to call repeatedly. */
+        inline void loadWifiFromNvs() {
+            nvs_handle_t h;
+            if (nvs_open(NVS_NS_WIFI, NVS_READONLY, &h) != ESP_OK) return;
+            size_t sz = sizeof(_wifi_ssid);
+            if (nvs_get_str(h, NVS_KEY_SSID, _wifi_ssid, &sz) != ESP_OK) _wifi_ssid[0] = '\0';
+            sz = sizeof(_wifi_password);
+            if (nvs_get_str(h, NVS_KEY_PASS, _wifi_password, &sz) != ESP_OK) _wifi_password[0] = '\0';
+            nvs_close(h);
+        }
+
+        /* Persist whatever is currently in `_wifi_ssid` / `_wifi_password` to NVS. */
+        inline void saveWifiToNvs() {
+            nvs_handle_t h;
+            if (nvs_open(NVS_NS_WIFI, NVS_READWRITE, &h) != ESP_OK) return;
+            nvs_set_str(h, NVS_KEY_SSID, _wifi_ssid);
+            nvs_set_str(h, NVS_KEY_PASS, _wifi_password);
+            nvs_commit(h);
+            nvs_close(h);
         }
 
         // Getter
@@ -84,13 +122,15 @@ namespace HAL
 
         inline void setWifiSSID(const char* wifi_ssid) {
           strncpy(_wifi_ssid, wifi_ssid, sizeof(_wifi_ssid) - 1);
-         _wifi_ssid[sizeof(_wifi_ssid) - 1] = '\0';  
+          _wifi_ssid[sizeof(_wifi_ssid) - 1] = '\0';
+          saveWifiToNvs();
         }
         inline const char* getWifiSSID() const {return _wifi_ssid;}
 
         inline void setWifiPassword(const char* wifi_password) {
           strncpy(_wifi_password, wifi_password, sizeof(_wifi_password) - 1);
-         _wifi_password[sizeof(_wifi_password) - 1] = '\0';  
+          _wifi_password[sizeof(_wifi_password) - 1] = '\0';
+          saveWifiToNvs();
         }
         inline const char* getWifiPassword() const {return _wifi_password;}
 

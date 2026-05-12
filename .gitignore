@@ -2,3 +2,8 @@
 build
 managed_components
 .DS_Store
+# Local NVS provisioning — contains real secrets. The committed template is
+# tools/nvs_keys.csv.example; copy it to tools/nvs_keys.csv and edit locally.
+tools/nvs_keys.csv
+# Compiled NVS image (built from tools/nvs_keys.csv).
+tools/nvs.bin

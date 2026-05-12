@@ -22,8 +22,22 @@ using namespace MOONCAKE::APPS;
 #define _canvas _data.hal->canvas()
 #define _canvas_update _data.hal->canvas_update
 #define _canvas_clear() _canvas->fillScreen(THEME_COLOR_BG)
-static char _wifi_ssid[50] = WIFI_SSID;
-static char _wifi_password[50] = WIFI_PASS;
+
+/* Live snapshots of the HAL's WiFi creds (which are NVS-loaded). The original
+ * code seeded these from compiled-in WIFI_SSID/WIFI_PASS; with secrets out of
+ * source those are now empty strings, and we read the real values from HAL
+ * each time we re-enter the SSID/Password prompts. */
+static char _wifi_ssid[50] = {0};
+static char _wifi_password[50] = {0};
+
+static void _sync_creds_from_hal(HAL::Hal* hal) {
+    const char* s = hal->getWifiSSID();
+    const char* p = hal->getWifiPassword();
+    strncpy(_wifi_ssid, s ? s : "", sizeof(_wifi_ssid) - 1);
+    _wifi_ssid[sizeof(_wifi_ssid) - 1] = '\0';
+    strncpy(_wifi_password, p ? p : "", sizeof(_wifi_password) - 1);
+    _wifi_password[sizeof(_wifi_password) - 1] = '\0';
+}
 
 void AppSetWiFi::_update_input() {
     // spdlog::info("{} {}", _keyboard->keyList().size(), _data.last_key_num);
@@ -174,15 +188,16 @@ void AppSetWiFi::_update_state() {
 
 
     if (_data.current_state == state_connect) {
-          
-          _data.wifi_ssid = _wifi_ssid;
-          _data.wifi_password = _wifi_password;
+        /* Use whatever the user just typed if non-empty; fall back to the
+         * stored credentials only when both prompts were skipped. Previous
+         * version unconditionally clobbered user input with the defaults. */
+        if (_data.wifi_ssid.empty())     _data.wifi_ssid     = _wifi_ssid;
+        if (_data.wifi_password.empty()) _data.wifi_password = _wifi_password;
 
-        // wifi_connect_wrap_config(_data.wifi_ssid.c_str(), _data.wifi_password.c_str());
-        // wifi_connect_wrap_connect();
         if (!_data._alreay_connected) {
             WiFi.begin(_data.wifi_ssid.c_str(), _data.wifi_password.c_str());
-            WiFi.waitForConnectResult(20 * 1000);
+            /* 8-second cap; longer waits make the UI feel hung. */
+            WiFi.waitForConnectResult(8 * 1000);
         }
 
         // if (wifi_connect_wrap_is_wifi_connect_success() != 0)
@@ -213,13 +228,19 @@ void AppSetWiFi::_update_state() {
             _canvas->printf(">>> ");
             _canvas_update();
         } else {
+            /* Don't auto-exit on failed connect — that feels like a crash.
+             * Drop back to the SSID prompt so the user can try different
+             * credentials. They can press HOME if they want to quit. */
             _canvas->setTextColor(TFT_RED, THEME_COLOR_BG);
-            _canvas->printf("Failed\n");
+            _canvas->printf("Failed. Re-enter:\n");
             _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
-            _canvas->printf(">>> ");
             _canvas_update();
-            delay(500);
-            destroyApp();
+            _data.wifi_ssid.clear();
+            _data.wifi_password.clear();
+            _data.repl_input_buffer.clear();
+            _data.current_state = state_init;
+            _update_state();
+            return;
         }
 
         // wifi_connect_wrap_disconnect();
@@ -265,6 +286,8 @@ void AppSetWiFi::onCreate() {
 
 void AppSetWiFi::onResume() {
     ANIM_APP_OPEN();
+    /* Pick up whatever is currently in NVS so the prompt can pre-fill. */
+    _sync_creds_from_hal(_data.hal);
 
     _canvas_clear();
     _canvas->setTextScroll(true);

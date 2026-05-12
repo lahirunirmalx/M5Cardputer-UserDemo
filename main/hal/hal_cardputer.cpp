@@ -98,6 +98,11 @@ void HalCardputer::init()
     _button_init();
     _bat_init();
     _sdcard_init();
+
+    /* Hydrate WiFi credentials from NVS (namespace "wifi"). Arduino-ESP32's
+     * initArduino() has already brought up nvs_flash; if creds are missing
+     * the buffers stay empty and Set WiFi will prompt. */
+    loadWifiFromNvs();
 }
  
 float __cardputer_hal_bat_v = 0;

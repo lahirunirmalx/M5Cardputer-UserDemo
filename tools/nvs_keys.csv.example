@@ -1,0 +1,35 @@
+key,type,encoding,value
+# -----------------------------------------------------------------------------
+# TEMPLATE — copy this file before editing so your real secrets don't end up
+# in git:
+#     cp tools/nvs_keys.csv.example tools/nvs_keys.csv
+# `tools/nvs_keys.csv` is listed in .gitignore.
+#
+# Build the binary (esp-idf v4.4.6):
+#   python3 $IDF_PATH/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py \
+#       generate tools/nvs_keys.csv tools/nvs.bin 0x5000
+#
+# Flash to the device (does NOT touch the app image):
+#   esptool.py -p /dev/ttyACM0 write_flash 0x9000 tools/nvs.bin
+#
+# Or use tools/flash_nvs.sh which wraps both steps. Partition layout lives in
+# partitions.csv — keep 0x9000 and size 0x5000 in sync.
+#
+# Lines starting with `#` are ignored by the generator.
+# -----------------------------------------------------------------------------
+
+# WiFi (read by hal.cpp via NVS namespace "wifi")
+wifi,namespace,,
+ssid,data,string,YourWiFiSSID
+pass,data,string,YourWiFiPassword
+
+# Claude usage API (read by app_claudemeter)
+#   base   = http://<host>:<port> (no trailing slash)
+#   bearer = the token from your claude-usage server
+claude,namespace,,
+base,data,string,http://192.168.1.100:7878
+bearer,data,string,REPLACE_WITH_YOUR_BEARER_TOKEN
+
+# Gemini API (read by app_gemini; also editable via that app)
+gemini,namespace,,
+apikey,data,string,REPLACE_WITH_YOUR_GEMINI_API_KEY
