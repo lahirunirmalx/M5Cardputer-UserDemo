@@ -55,10 +55,23 @@ static const uint32_t COLOR_DISPLAY_BG = (uint32_t)0x1E1E22;
 static const uint32_t COLOR_SEG_OFF    = (uint32_t)0x252528;
 static const uint32_t COLOR_DIM_TEXT   = (uint32_t)0x9A9A9A;
 
-/* Standard color codes (Black..White, Gold, Silver) as RGB565 */
-static const uint16_t BAND_COLORS[] = {
-    0x0000, 0x2145, 0xD800, 0xFB80, 0xFFE0, 0x3666, 0x001F, 0x8814,
-    0x8410, 0xFFFF, 0xFD20, 0xC618
+/* Standard resistor color-band values (RGB888). Order matches the digit
+ * the band encodes: 0 Black, 1 Brown, 2 Red, 3 Orange, 4 Yellow, 5 Green,
+ * 6 Blue, 7 Violet, 8 Grey, 9 White, 10 Gold, 11 Silver. The canvas is
+ * 24-bit so these are full RGB hex, not RGB565. */
+static const uint32_t BAND_COLORS[] = {
+    0x000000, /* 0  Black  */
+    0x6F4F1F, /* 1  Brown  */
+    0xE60000, /* 2  Red    */
+    0xFF8000, /* 3  Orange */
+    0xFFFF00, /* 4  Yellow */
+    0x00A000, /* 5  Green  */
+    0x0040FF, /* 6  Blue   */
+    0x8000FF, /* 7  Violet */
+    0x808080, /* 8  Grey   */
+    0xFFFFFF, /* 9  White  */
+    0xD4AF37, /* 10 Gold   */
+    0xC0C0C0  /* 11 Silver */
 };
 
 static const char* COLOR_NAMES[] = {
@@ -204,12 +217,12 @@ void AppResistor::onRunning()
 
             for (int k : hid) {
                 /* Navigation: left/right switches band */
-                if (k == KEY_LEFT) {
+                if (k == KEY_LEFT || k == KEY_COMMA) {
                     if (_data.selected_band > 0) _data.selected_band--;
                     _draw();
                     goto key_done;
                 }
-                if (k == KEY_RIGHT) {
+                if (k == KEY_RIGHT || k == KEY_KPSLASH) {
                     if (_data.selected_band < 3) _data.selected_band++;
                     _draw();
                     goto key_done;
@@ -222,14 +235,14 @@ void AppResistor::onRunning()
                  *   3   (tolerance)    -> 0..3 (+-1, +-2, +-5, +-10) */
                 int max_idx = (_data.selected_band == 2) ? 11
                             : (_data.selected_band == 3) ? 3 : 9;
-                if (k == KEY_UP) {
+                if (k == KEY_UP || k == KEY_SEMICOLON) {
                     uint8_t v = _data.band[_data.selected_band];
                     v = (v >= max_idx) ? 0 : (uint8_t)(v + 1);
                     _data.band[_data.selected_band] = v;
                     _draw();
                     goto key_done;
                 }
-                if (k == KEY_DOWN) {
+                if (k == KEY_DOWN || k == KEY_DOT) {
                     uint8_t v = _data.band[_data.selected_band];
                     v = (v == 0) ? (uint8_t)max_idx : (uint8_t)(v - 1);
                     _data.band[_data.selected_band] = v;

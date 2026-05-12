@@ -190,10 +190,10 @@ void AppSnake::onRunning()
             const auto& st = _keyboard->keysState();
             for (int k : st.hidKey) {
                 if (_data.state == GS_PLAYING) {
-                    if (k == KEY_UP    && _data.dir != D_DOWN)  _data.next_dir = D_UP;
-                    if (k == KEY_DOWN  && _data.dir != D_UP)    _data.next_dir = D_DOWN;
-                    if (k == KEY_LEFT  && _data.dir != D_RIGHT) _data.next_dir = D_LEFT;
-                    if (k == KEY_RIGHT && _data.dir != D_LEFT)  _data.next_dir = D_RIGHT;
+                    if ((k == KEY_UP    || k == KEY_SEMICOLON) && _data.dir != D_DOWN)  _data.next_dir = D_UP;
+                    if ((k == KEY_DOWN  || k == KEY_DOT)       && _data.dir != D_UP)    _data.next_dir = D_DOWN;
+                    if ((k == KEY_LEFT  || k == KEY_COMMA)     && _data.dir != D_RIGHT) _data.next_dir = D_LEFT;
+                    if ((k == KEY_RIGHT || k == KEY_KPSLASH)   && _data.dir != D_LEFT)  _data.next_dir = D_RIGHT;
                 }
                 if (k == KEY_R) { _reset(); _draw(); }
             }

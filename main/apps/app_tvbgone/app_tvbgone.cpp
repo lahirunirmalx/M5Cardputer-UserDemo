@@ -397,14 +397,14 @@ void AppTvbgone::onRunning()
             const auto& st = _keyboard->keysState();
             bool handled = false;
             for (int k : st.hidKey) {
-                if (k == KEY_UP)   { if (_data.cursor > 0) _data.cursor--; handled = true; }
-                if (k == KEY_DOWN) { if (_data.cursor < _group_size() - 1) _data.cursor++; handled = true; }
-                if (k == KEY_LEFT) {
+                if (k == KEY_UP   || k == KEY_SEMICOLON) { if (_data.cursor > 0) _data.cursor--; handled = true; }
+                if (k == KEY_DOWN || k == KEY_DOT)       { if (_data.cursor < _group_size() - 1) _data.cursor++; handled = true; }
+                if (k == KEY_LEFT || k == KEY_COMMA) {
                     if (_data.group > 0) _data.group = (Group)((int)_data.group - 1);
                     _data.cursor = 0;
                     handled = true;
                 }
-                if (k == KEY_RIGHT) {
+                if (k == KEY_RIGHT || k == KEY_KPSLASH) {
                     if (_data.group < G_MIDEA) _data.group = (Group)((int)_data.group + 1);
                     _data.cursor = 0;
                     handled = true;

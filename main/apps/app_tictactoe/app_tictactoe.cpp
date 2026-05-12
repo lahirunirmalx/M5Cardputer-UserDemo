@@ -235,10 +235,10 @@ void AppTicTacToe::onRunning()
             for (int k : st.hidKey) {
                 if (_data.state == GS_TURN_X || _data.state == GS_TURN_O) {
                     int c = _data.cursor;
-                    if (k == KEY_UP    && c >= 3) _data.cursor = c - 3;
-                    if (k == KEY_DOWN  && c <= 5) _data.cursor = c + 3;
-                    if (k == KEY_LEFT  && (c % 3) > 0) _data.cursor = c - 1;
-                    if (k == KEY_RIGHT && (c % 3) < 2) _data.cursor = c + 1;
+                    if ((k == KEY_UP    || k == KEY_SEMICOLON) && c >= 3) _data.cursor = c - 3;
+                    if ((k == KEY_DOWN  || k == KEY_DOT)       && c <= 5) _data.cursor = c + 3;
+                    if ((k == KEY_LEFT  || k == KEY_COMMA)     && (c % 3) > 0) _data.cursor = c - 1;
+                    if ((k == KEY_RIGHT || k == KEY_KPSLASH)   && (c % 3) < 2) _data.cursor = c + 1;
                 }
                 if (k == KEY_R) { _reset(); _draw(); goto done; }
                 if (k == KEY_T) {

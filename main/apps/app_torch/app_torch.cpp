@@ -93,12 +93,12 @@ void AppTorch::onRunning()
 
             bool change = false;
             for (int k : st.hidKey) {
-                if (k == KEY_UP) {
+                if (k == KEY_UP || k == KEY_SEMICOLON) {
                     int b = _data.brightness + 16;
                     _data.brightness = (b > 255) ? 255 : (uint8_t)b;
                     _data.on = true;
                     change = true;
-                } else if (k == KEY_DOWN) {
+                } else if (k == KEY_DOWN || k == KEY_DOT) {
                     int b = _data.brightness - 16;
                     _data.brightness = (b < 8) ? 8 : (uint8_t)b;
                     change = true;

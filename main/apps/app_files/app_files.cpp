@@ -204,7 +204,7 @@ void AppFilesManager::_draw_list()
         _canvas->print(fbuf);
     } else {
         _canvas->setTextColor(COLOR_DIM_TEXT, THEME_COLOR_BG);
-        _canvas->print("^v ENT BK  N I C M R D P  HOME");
+        _canvas->print("; . ENT BK  N I C M R D P  HOME");
     }
 
     _canvas_update();
@@ -484,15 +484,17 @@ void AppFilesManager::onRunning()
             _canvas->print("Enter retry  HOME exit");
             _canvas_update();
             _keyboard->updateKeyList();
-            if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
-                if (_keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER) {
-                    _data.last_key_num = _keyboard->keyList().size();
+            size_t kn = _keyboard->keyList().size();
+            if (_data.last_key_num != kn) {
+                if (kn > 0 &&
+                    _keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER) {
                     if (_sdcard->mount(false)) {
                         _data.current_state = state_list;
                         _refresh_list();
                         _draw_list();
                     }
                 }
+                _data.last_key_num = kn;
             }
         } else {
             _data.current_state = state_list;
@@ -503,25 +505,30 @@ void AppFilesManager::onRunning()
 
     if (_data.current_state == state_list) {
         _keyboard->updateKeyList();
-        if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
+        size_t kn = _keyboard->keyList().size();
+        if (_data.last_key_num != kn) {
+            _data.last_key_num = kn;
+            if (kn > 0) {
             auto key = _keyboard->getKey();
             int v = _keyboard->getKeyValue(key).value_num_first;
-            if (v == KEY_UP) {
+            /* Cardputer has no physical arrow keys; ';' = up and '.' = down by
+             * project convention (app_led, app_gemini, app_mp3, …). KEY_UP/DOWN
+             * are kept for external HID keyboards. */
+            if (v == KEY_UP || v == KEY_SEMICOLON) {
                 if (_data.selected_index > 0) {
                     _data.selected_index--;
                     if (_data.scroll_offset > _data.selected_index)
                         _data.scroll_offset = _data.selected_index;
                     _draw_list();
                 }
-            } else if (v == KEY_DOWN) {
+            } else if (v == KEY_DOWN || v == KEY_DOT) {
                 if (_data.selected_index < (int)_data.entries.size() - 1) {
                     _data.selected_index++;
                     if (_data.selected_index >= _data.scroll_offset + LIST_LINES)
                         _data.scroll_offset = _data.selected_index - LIST_LINES + 1;
                     _draw_list();
                 }
-            } else if (v == KEY_ENTER) {
-                if (_data.entries.empty()) { _data.last_key_num = _keyboard->keyList().size(); return; }
+            } else if (v == KEY_ENTER && !_data.entries.empty()) {
                 const FileEntry& e = _data.entries[_data.selected_index];
                 if (e.is_dir) {
                     _data.current_path = _data.current_path.empty() ? e.name : (_data.current_path + "/" + e.name);
@@ -589,19 +596,22 @@ void AppFilesManager::onRunning()
                     _draw_confirm_delete();
                 }
             }
-            _data.last_key_num = _keyboard->keyList().size();
+            } /* end if (kn > 0) */
         }
     }
 
     else if (_data.current_state == state_detail) {
         _keyboard->updateKeyList();
-        if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
-            if (_keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER ||
-                _keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ESC) {
-                _data.current_state = state_list;
-                _draw_list();
+        size_t kn = _keyboard->keyList().size();
+        if (_data.last_key_num != kn) {
+            _data.last_key_num = kn;
+            if (kn > 0) {
+                int v = _keyboard->getKeyValue(_keyboard->getKey()).value_num_first;
+                if (v == KEY_ENTER || v == KEY_ESC || v == KEY_BACKSPACE) {
+                    _data.current_state = state_list;
+                    _draw_list();
+                }
             }
-            _data.last_key_num = _keyboard->keyList().size();
         }
     }
 
@@ -675,37 +685,42 @@ void AppFilesManager::onRunning()
 
     else if (_data.current_state == state_message) {
         _keyboard->updateKeyList();
-        if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
-            if (_keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER) {
+        size_t kn = _keyboard->keyList().size();
+        if (_data.last_key_num != kn) {
+            _data.last_key_num = kn;
+            if (kn > 0 &&
+                _keyboard->getKeyValue(_keyboard->getKey()).value_num_first == KEY_ENTER) {
                 _data.current_state = state_list;
                 _draw_list();
             }
-            _data.last_key_num = _keyboard->keyList().size();
         }
     }
 
     else if (_data.current_state == state_confirm_delete) {
         _keyboard->updateKeyList();
-        if (_data.last_key_num != _keyboard->keyList().size() && _keyboard->keyList().size() > 0) {
-            int v = _keyboard->getKeyValue(_keyboard->getKey()).value_num_first;
-            if (v == KEY_Y) {
-                bool ok = _do_delete(_data.pending_delete_path.c_str());
-                _data.pending_delete_path.clear();
-                _data.pending_delete_name.clear();
-                if (ok) {
+        size_t kn = _keyboard->keyList().size();
+        if (_data.last_key_num != kn) {
+            _data.last_key_num = kn;
+            if (kn > 0) {
+                int v = _keyboard->getKeyValue(_keyboard->getKey()).value_num_first;
+                if (v == KEY_Y) {
+                    bool ok = _do_delete(_data.pending_delete_path.c_str());
+                    _data.pending_delete_path.clear();
+                    _data.pending_delete_name.clear();
+                    if (ok) {
+                        _data.current_state = state_list;
+                        _refresh_list();
+                        _draw_list();
+                    } else {
+                        _message("Delete failed");
+                    }
+                } else if (v == KEY_N || v == KEY_ESC) {
+                    _data.pending_delete_path.clear();
+                    _data.pending_delete_name.clear();
                     _data.current_state = state_list;
-                    _refresh_list();
                     _draw_list();
-                } else {
-                    _message("Delete failed");
                 }
-            } else if (v == KEY_N || v == KEY_ESC) {
-                _data.pending_delete_path.clear();
-                _data.pending_delete_name.clear();
-                _data.current_state = state_list;
-                _draw_list();
             }
-            _data.last_key_num = _keyboard->keyList().size();
         }
     }
 
