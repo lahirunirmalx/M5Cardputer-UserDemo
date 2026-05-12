@@ -35,3 +35,4 @@
 #include "app_tictactoe/app_tictactoe.h"
 #include "app_tvbgone/app_tvbgone.h"
 #include "app_blepair/app_blepair.h"
+#include "app_claudemeter/app_claudemeter.h"
