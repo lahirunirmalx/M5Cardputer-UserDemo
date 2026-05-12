@@ -5,6 +5,7 @@
 #include "app_files.h"
 #include "spdlog/spdlog.h"
 #include <cstring>
+#include <ctime>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <stdio.h>
@@ -308,7 +309,15 @@ void AppFilesManager::_draw_detail(const FileEntry& e)
     _canvas->setTextColor(COLOR_FILE_TEXT, COLOR_PANEL_BG);
     _canvas->setCursor(60, y4);
     char tbuf[24];
-    snprintf(tbuf, sizeof(tbuf), "%lu", (unsigned long)e.mtime);
+    struct tm tm_buf;
+    time_t t = e.mtime;
+    /* localtime_r is preferred but the SD entry's mtime is usually UTC; gmtime
+     * keeps the displayed value consistent regardless of TZ setup. */
+    if (t > 0 && gmtime_r(&t, &tm_buf) != nullptr) {
+        strftime(tbuf, sizeof(tbuf), "%Y-%m-%d %H:%M", &tm_buf);
+    } else {
+        snprintf(tbuf, sizeof(tbuf), "-");
+    }
     _canvas->print(tbuf);
 
     _canvas->setFont(FONT_SMALL);
