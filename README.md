@@ -55,6 +55,12 @@ Originally derived from [WuSiYu/M5Cardputer-UserDemo-Plus](https://github.com/Wu
 | **BLE Pair** | BLE proximity-advert demonstrator. Broadcasts manufacturer-specific adverts (Apple Continuity / Google Fast Pair / Samsung) that nearby phones interpret as "device available to pair". 60-second auto-stop, payload-change auto-stops the current broadcast, normal 100-120 ms adv interval. **Use responsibly — affects nearby phones.** |
 | **IR**, **Chat**, **Scales**, **Env** | inherited apps |
 
+### Monitoring
+
+| App | What it does |
+| --- | --- |
+| **Claude Meter** | Polls a local Claude usage HTTP service (`/usage`, `/stats`, `/token`) every 5 min from a background FreeRTOS task that survives `destroyApp()`, so the alert keeps firing while you use other apps. Seven swipable screens: summary (big 5h % + bar + reset countdown, small 7d row), 5H usage, 7D usage, Opus/Sonnet split, totals (sessions / messages / per-model output tokens / today's tally), OAuth token expiry countdown, full detail dashboard, and a settings screen for the bearer + base URL (NVS-persisted). On each refresh the NeoPixel pulses 5× in the severity color (lime <70%, orange 70-89%, red ≥90%); a beep accompanies red and can be muted with `M`. `B` exits to background (poll keeps running), `X` stops the task entirely |
+
 ---
 
 ## Improvements vs upstream WuSiYu
@@ -66,8 +72,9 @@ In addition to everything upstream, this fork:
 - Fixes a latent bug in Resistor — tolerance band was drawn with color indices 0-3 (black / brown / red / orange) instead of the real tolerance band colors (brown / red / gold / silver)
 - Adds File Manager delete confirmation (was destructive on a single key press)
 - Adds the new apps listed above
-- Adds `tools/generate_icons.py` — a Pillow-based icon generator that emits the R5G6B5 `image_data_*` headers used by `AppIcon_t`
-- Replaces several blurry / placeholder icons with sharp vector-style ones
+- Adds `tools/generate_icons.py` — a Pillow-based icon generator that emits the R5G6B5 `image_data_*` headers used by `AppIcon_t`. All new-app icons now share a 22-color flat palette extracted from the default icons (sharp pixel art, no anti-aliasing into the green background)
+- Replaces several blurry / placeholder icons with sharp vector-style ones (env and scales were duplicates; both now have their own draws)
+- Moves WiFi credentials and the Claude usage bearer/base URL out of source into NVS — see [Secrets & NVS provisioning](#secrets--nvs-provisioning) below
 - Cleans up build warnings (deprecated `drawRightString` overloads, ignored `const`-on-return, dead `size_t < 0` checks)
 
 ---
@@ -97,6 +104,8 @@ In addition to everything upstream, this fork:
 - [x] TV-B-Gone (with Midea AC codes)
 - [x] iPhone BLE Pairing Emulation
 - [x] Google/Samsung BLE Pairing Emulation
+- [x] Claude usage meter (5h / 7d / Opus-Sonnet split / token expiry / live bg LED+beep alerts)
+- [x] Move all WiFi / API secrets out of source into NVS + provisioning template
 - [ ] Save and load user preferences
 - [ ] Notification Center App
 
@@ -120,7 +129,47 @@ idf.py build
 idf.py -p /dev/ttyACM0 -b 1500000 flash monitor
 ```
 
-There is also a `flash.sh` convenience script — edit `IDF_PATH` and `SERIAL_PORT` near the top to match your setup.
+Or use the `flash.sh` convenience script, which does build → app flash → NVS-provisioning flash → monitor in one go:
+
+```bash
+./flash.sh                # full flow
+./flash.sh --no-monitor   # skip the serial monitor
+./flash.sh --app-only     # skip the NVS step
+```
+
+The script auto-detects `IDF_PATH` (`$HOME/esp/esp-idf` or `…-v4.4.6`) and the IDF Python venv, so a fresh checkout usually works without edits.
+
+---
+
+## Secrets & NVS provisioning
+
+WiFi credentials and the Claude usage bearer token are NOT in source — they live in NVS so the firmware can be shared safely:
+
+| Namespace | Keys | Used by |
+| --- | --- | --- |
+| `wifi` | `ssid`, `pass` | HAL (loaded on `init()`), Set WiFi app, app_radio |
+| `claude` | `base`, `bearer` | Claude Meter app |
+| `gemini` | `apikey` | Gemini app (set via app itself) |
+
+### Edit at runtime
+
+- **Set WiFi** app — prefilled with the current NVS value; entering new creds saves them back through `setWifiSSID/Password`, which write-through to NVS.
+- **Claude Meter** → press `E` on any screen → Settings. `T` cycles between Bearer / Base URL. Type, hit Enter, value is committed to NVS and the next fetch uses it.
+
+### Pre-flash provisioning (recommended for clean installs)
+
+1. Copy the template (the committed file with placeholders) to a local copy (gitignored — never committed):
+
+   ```bash
+   cp tools/nvs_keys.csv.example tools/nvs_keys.csv
+   ```
+
+2. Edit `tools/nvs_keys.csv` with your real WiFi SSID/password, Claude base URL, and bearer token.
+3. Flash with `./flash.sh` — the script detects the local CSV and runs `tools/flash_nvs.sh` after the app image, which builds `nvs.bin` via IDF's `nvs_partition_gen.py` and writes it to `0x9000`.
+
+If `tools/nvs_keys.csv` is absent, `flash.sh` just skips the NVS step and prints a hint — you can still enter creds at runtime via the apps.
+
+> **Never commit `tools/nvs_keys.csv` or `tools/nvs.bin`** — both are in `.gitignore`. The committed `.example` template carries only placeholders.
 
 ---
 
