@@ -7,3 +7,6 @@ managed_components
 tools/nvs_keys.csv
 # Compiled NVS image (built from tools/nvs_keys.csv).
 tools/nvs.bin
+# Old release archive (332 MB — was committed once and stripped from history;
+# keep it ignored so it can't accidentally end up in a commit again).
+build_alpha.zip
