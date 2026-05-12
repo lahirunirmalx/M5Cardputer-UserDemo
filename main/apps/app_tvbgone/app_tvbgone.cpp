@@ -1,20 +1,29 @@
 /**
  * @file app_tvbgone.cpp
- * @brief TV-B-Gone style universal IR remote.
+ * @brief Universal IR power-off cycler.
  *
- * Builds raw RMT items per protocol (NEC / RC5 / Sony SIRC / Midea AC) and
- * blasts them out the on-board IR LED (GPIO 44, RMT TX ch 1 - we use ch1
- * to avoid clashing with app_ir's existing RX setup on ch 0).
+ * Code set:
+ *   - 143 NA + 140 EU TV codes from Ken Shirriff's Arduino-TV-B-Gone
+ *     (world_ir_codes.h) — each entry encodes timing pairs with 2-4 bit
+ *     index compression, and the carrier frequency varies per code
+ *     (~36/38/40/56kHz)
+ *   - 4 Midea AC codes (48-bit Midea protocol, user-supplied)
+ *
+ * IR output: GPIO 44, RMT TX channel 1 (channel 0 stays reserved for app_ir).
+ * RMT runs at 1us tick (clk_div 80). Carrier is reconfigured per code via
+ * rmt_set_tx_carrier() so we hit the right kHz for each TV brand.
  *
  * Keys:
- *   Space / Enter / F  : start firing the full list (auto-cycles)
- *   Up / Down          : pick a single entry
- *   S                  : send just the selected entry
- *   Esc                : stop firing
- *   HOME               : exit
+ *   Up/Down  : move cursor
+ *   Left/Right or 1/2/3 : switch group (NA / EU / MIDEA)
+ *   S        : send selected
+ *   Enter/F  : fire whole current group
+ *   Esc      : stop firing
+ *   HOME     : exit
  */
 #include "app_tvbgone.h"
 #include "codes.h"
+#include "world_ir_codes.h"
 #include "../utils/theme/theme_define.h"
 #include "../../hal/keyboard/keymap.h"
 #include "driver/rmt.h"
@@ -29,210 +38,77 @@ using namespace MOONCAKE::APPS;
 #define _canvas_update _data.hal->canvas_update
 #define _canvas_clear() _canvas->fillScreen(THEME_COLOR_BG)
 
-/* Use TX channel 1 + GPIO 44 (M5Cardputer's IR LED). Channel 0 is reserved
- * for app_ir's NEC builder so the two apps don't fight over the same
- * channel state. 1 tick = 1us with the default 80MHz APB / div=80. */
-static constexpr rmt_channel_t TX_CH       = (rmt_channel_t)1;
-static constexpr gpio_num_t    TX_GPIO     = (gpio_num_t)44;
-static constexpr int           TICK_US     = 1;
+static constexpr rmt_channel_t TX_CH   = (rmt_channel_t)1;
+static constexpr gpio_num_t    TX_GPIO = (gpio_num_t)44;
 
-/* Layout */
-static constexpr int TITLE_Y      = 1;
-static constexpr int CHIP_Y       = 5;
-static constexpr int PANEL_Y      = 19;
-static constexpr int PANEL_H      = 56;
-static constexpr int STATUS_Y     = 79;
-static constexpr int FOOTER_Y     = 100;
+static constexpr int TITLE_Y    = 1;
+static constexpr int CHIP_Y     = 5;
+static constexpr int TABS_Y     = 17;
+static constexpr int PANEL_Y    = 30;
+static constexpr int PANEL_H    = 49;
+static constexpr int STATUS_Y   = 82;
+static constexpr int FOOTER_Y   = 100;
 
 static const uint32_t COLOR_ACCENT    = (uint32_t)0x99FF00;
 static const uint32_t COLOR_PANEL_BG  = (uint32_t)0x1E1E22;
 static const uint32_t COLOR_DIM_TEXT  = (uint32_t)0x9A9A9A;
 static const uint32_t COLOR_FIRING    = (uint32_t)0xFF6464;
 static const uint32_t COLOR_OK        = (uint32_t)0x99FF00;
+static const uint32_t COLOR_TAB_BG    = (uint32_t)0x3A3A60;
 
 /* ---------- raw RMT helpers ---------- */
-static inline void rmt_pair(rmt_item32_t& it, uint32_t mark_us, uint32_t space_us)
+static inline void emit_pair(rmt_item32_t* items, int& n,
+                             uint16_t mark_us, uint32_t space_us)
 {
-    it.level0    = 1;
-    it.duration0 = (uint16_t)(mark_us);
-    it.level1    = 0;
-    it.duration1 = (uint16_t)(space_us);
-}
-
-static void tx_send(rmt_item32_t* items, size_t n)
-{
-    rmt_write_items(TX_CH, items, (int)n, true);   /* wait until done */
-}
-
-/* NEC frame:
- *   header: 9000us mark, 4500us space
- *   bit 0 : 562 mark,  562 space
- *   bit 1 : 562 mark, 1687 space
- *   trailer: 562 mark
- *   With std NEC, address (LSB first) + ~address + command (LSB first) + ~command. */
-static void send_nec(uint32_t addr, uint32_t cmd, bool extended)
-{
-    rmt_item32_t items[68];
-    int n = 0;
-    rmt_pair(items[n++], 9000, 4500);
-    uint32_t payload;
-    if (extended) {
-        /* 16-bit address (no complement) + 8-bit cmd + ~cmd */
-        payload  = (addr & 0xFFFF) |
-                   (((cmd & 0xFF) << 16)) |
-                   (((~cmd) & 0xFF) << 24);
-    } else {
-        payload  =  (addr & 0xFF) |
-                   (((~addr) & 0xFF) << 8) |
-                   (((cmd  & 0xFF) << 16)) |
-                   (((~cmd) & 0xFF) << 24);
+    /* Each RMT duration field is 15-bit (max 32767us). Split long spaces
+     * into a leading (mark, 32000us) item plus N follow-up "level-low only"
+     * items that hold the line low for up to 32000us each. */
+    uint16_t mark_clamped = (mark_us > 32000) ? 32000 : mark_us;
+    uint16_t first_space  = (space_us > 32000) ? 32000 : (uint16_t)space_us;
+    items[n].level0    = 1;
+    items[n].duration0 = mark_clamped;
+    items[n].level1    = 0;
+    items[n].duration1 = first_space;
+    n++;
+    uint32_t left = (space_us > first_space) ? (space_us - first_space) : 0;
+    while (left > 0) {
+        uint16_t chunk = (left > 32000) ? 32000 : (uint16_t)left;
+        uint16_t half  = chunk / 2;
+        items[n].level0    = 0;
+        items[n].duration0 = half;
+        items[n].level1    = 0;
+        items[n].duration1 = (uint16_t)(chunk - half);
+        n++;
+        left -= chunk;
     }
-    for (int i = 0; i < 32; i++) {
-        bool b = (payload >> i) & 1;
-        rmt_pair(items[n++], 562, b ? 1687 : 562);
-    }
-    rmt_pair(items[n++], 562, 30000);  /* trailer + inter-frame gap (RMT duration is 15-bit) */
-    tx_send(items, n);
-}
-
-/* RC5 (Manchester). Carrier is 36kHz officially but 38kHz usually works.
- *  bit duration = 1778us, each bit is two half-bits:
- *    bit 1 = space then mark
- *    bit 0 = mark then space
- *  14-bit frame: S1 S2 T A4..A0 C5..C0 (we send fixed start=11 toggle=0). */
-static void send_rc5(uint8_t addr, uint8_t cmd)
-{
-    static int rc5_toggle = 0;
-    rc5_toggle ^= 1;
-    /* Build 14 bits MSB-first */
-    uint16_t frame = (1 << 13) | (1 << 12) |
-                     ((rc5_toggle & 1) << 11) |
-                     ((addr & 0x1F) << 6) |
-                     (cmd & 0x3F);
-    /* Emit each bit as two half-bits (889us each) */
-    rmt_item32_t items[64];
-    int n = 0;
-    bool level = false;  /* track current pin level for merging */
-    uint32_t run = 0;
-    auto flush = [&]() {
-        if (run == 0) return;
-        if (n == 0) {
-            items[n].level0 = level;
-            items[n].duration0 = (uint16_t)run;
-            items[n].level1 = !level;
-            items[n].duration1 = 0;
-            n++;
-        } else {
-            if (items[n-1].duration1 == 0 && items[n-1].level1 == level) {
-                items[n-1].duration1 = (uint16_t)run;
-            } else {
-                items[n].level0 = level;
-                items[n].duration0 = (uint16_t)run;
-                items[n].level1 = !level;
-                items[n].duration1 = 0;
-                n++;
-            }
-        }
-        run = 0;
-    };
-    auto half_bit = [&](bool lvl) {
-        if (level == lvl) {
-            run += 889;
-        } else {
-            flush();
-            level = lvl;
-            run = 889;
-        }
-    };
-    for (int i = 13; i >= 0; i--) {
-        bool b = (frame >> i) & 1;
-        /* RC5 1 = space then mark; 0 = mark then space.
-         * Carrier-modulated mark = level 1 in our RMT. */
-        if (b) { half_bit(false); half_bit(true); }
-        else   { half_bit(true);  half_bit(false); }
-    }
-    flush();
-    /* close last item with a trailing gap */
-    if (n > 0 && items[n-1].duration1 == 0) {
-        items[n-1].level1 = 0;
-        items[n-1].duration1 = 30000;
-    } else {
-        rmt_pair(items[n++], 0, 30000);
-    }
-    tx_send(items, n);
-}
-
-/* Sony SIRC: 40kHz carrier ideally, 38kHz mostly works.
- *   header 2400us mark, 600 space
- *   bit 0  600 mark, 600 space
- *   bit 1  1200 mark, 600 space
- *   LSB first, then trailer/inter-frame ~25-45ms. Re-send 3x for reliability. */
-static void send_sirc(uint32_t data, int nbits)
-{
-    rmt_item32_t items[44];
-    for (int rep = 0; rep < 3; rep++) {
-        int n = 0;
-        rmt_pair(items[n++], 2400, 600);
-        for (int i = 0; i < nbits; i++) {
-            bool b = (data >> i) & 1;
-            rmt_pair(items[n++], b ? 1200 : 600, 600);
-        }
-        items[n - 1].duration1 = 30000;  /* inter-frame gap (RMT duration max 32767) */
-        tx_send(items, n);
-    }
-}
-
-/* Midea 48-bit AC:
- *   header 4400 mark, 4400 space
- *   bit 0  540 mark,  540 space
- *   bit 1  540 mark, 1620 space
- *   trailer 540 mark, 5200 space
- *   then 48-bit complement frame, then 540 mark trailer
- *   Single-shot is enough for "send command once". */
-static void send_midea(uint32_t hi, uint32_t lo)
-{
-    /* 6 bytes MSB-first: hi[31:24], hi[23:16], hi[15:8], hi[7:0], lo[15:8], lo[7:0] */
-    uint8_t bytes[6] = {
-        (uint8_t)((hi >> 24) & 0xFF),
-        (uint8_t)((hi >> 16) & 0xFF),
-        (uint8_t)((hi >>  8) & 0xFF),
-        (uint8_t)((hi >>  0) & 0xFF),
-        (uint8_t)((lo >>  8) & 0xFF),
-        (uint8_t)((lo >>  0) & 0xFF),
-    };
-    rmt_item32_t items[110];
-    int n = 0;
-
-    auto put_header = [&]() {
-        rmt_pair(items[n++], 4400, 4400);
-    };
-    auto put_byte = [&](uint8_t b) {
-        for (int i = 7; i >= 0; i--) {
-            bool v = (b >> i) & 1;
-            rmt_pair(items[n++], 540, v ? 1620 : 540);
-        }
-    };
-
-    /* primary frame */
-    put_header();
-    for (int i = 0; i < 6; i++) put_byte(bytes[i]);
-    /* separator: mark + 5.2ms space */
-    rmt_pair(items[n++], 540, 5200);
-    /* complement frame */
-    put_header();
-    for (int i = 0; i < 6; i++) put_byte((uint8_t)~bytes[i]);
-    /* final trailer */
-    rmt_pair(items[n++], 540, 30000);
-
-    tx_send(items, n);
 }
 
 /* ---------- TX channel lifecycle ---------- */
+void AppTvbgone::_set_carrier(uint32_t hz)
+{
+    if (hz == _data.cur_carrier_hz) return;
+    /* high+low periods in source-clock ticks. clk_div 80 → 1 tick = 1us,
+     * but the carrier counter uses the un-divided 80MHz clock so 1 tick
+     * here is 12.5ns. ESP-IDF helpers express this in "RMT carrier ticks"
+     * which we compute from Hz. */
+    if (hz < 30000) hz = 30000;
+    if (hz > 60000) hz = 60000;
+    uint32_t total_ticks = 80000000UL / hz;        /* 80MHz APB / freq */
+    uint32_t high_ticks  = total_ticks / 3;        /* 33% duty */
+    uint32_t low_ticks   = total_ticks - high_ticks;
+    /* rmt_set_tx_carrier expects 16-bit periods, total must be < 65536 */
+    if (high_ticks > 65000) high_ticks = 65000;
+    if (low_ticks  > 65000) low_ticks  = 65000;
+    rmt_set_tx_carrier(TX_CH, true, (uint16_t)high_ticks, (uint16_t)low_ticks,
+                       RMT_CARRIER_LEVEL_HIGH);
+    _data.cur_carrier_hz = hz;
+}
+
 void AppTvbgone::_begin_rmt()
 {
     if (_data.rmt_inited) return;
     rmt_config_t cfg = RMT_DEFAULT_CONFIG_TX(TX_GPIO, TX_CH);
-    cfg.clk_div = 80;                  /* 1us per tick */
+    cfg.clk_div = 80;                  /* 1us per data tick */
     cfg.tx_config.carrier_en = true;
     cfg.tx_config.carrier_freq_hz = 38000;
     cfg.tx_config.carrier_duty_percent = 33;
@@ -244,6 +120,7 @@ void AppTvbgone::_begin_rmt()
         spdlog::error("tvbgone rmt_driver_install failed");
         return;
     }
+    _data.cur_carrier_hz = 38000;
     _data.rmt_inited = true;
 }
 
@@ -252,22 +129,113 @@ void AppTvbgone::_end_rmt()
     if (!_data.rmt_inited) return;
     rmt_driver_uninstall(TX_CH);
     _data.rmt_inited = false;
+    _data.cur_carrier_hz = 0;
 }
 
-/* ---------- send dispatcher ---------- */
-void AppTvbgone::_send_current()
+/* ---------- Shirriff format player ---------- */
+static int _read_bits(const uint8_t* codes, int bit_offset, int bit_count)
 {
-    if (_data.fire_idx < 0 || _data.fire_idx >= TVBGONE_CODE_COUNT) return;
-    const tvbgone_code_t& c = TVBGONE_CODES[_data.fire_idx];
-    _data.last_label = c.label;
-    switch (c.proto) {
-        case PROTO_NEC:     send_nec(c.data_hi, c.data_lo, false); break;
-        case PROTO_NEC_EXT: send_nec(c.data_hi, c.data_lo, true);  break;
-        case PROTO_RC5:     send_rc5((uint8_t)c.data_hi, (uint8_t)c.data_lo); break;
-        case PROTO_SIRC12:  send_sirc(c.data_lo, 12); break;
-        case PROTO_SIRC15:  send_sirc(c.data_lo, 15); break;
-        case PROTO_SIRC20:  send_sirc(c.data_lo, 20); break;
-        case PROTO_MIDEA:   send_midea(c.data_hi, c.data_lo); break;
+    /* Big-endian within each byte (MSB-first), spanning across bytes. */
+    int value = 0;
+    for (int i = 0; i < bit_count; i++) {
+        int b = bit_offset + i;
+        int byte_idx = b >> 3;
+        int bit_in_byte = 7 - (b & 7);
+        value = (value << 1) | ((codes[byte_idx] >> bit_in_byte) & 1);
+    }
+    return value;
+}
+
+static void send_shirriff(const struct IrCode& c, AppTvbgone* self,
+                          void (AppTvbgone::*set_carrier)(uint32_t))
+{
+    (self->*set_carrier)(c.timer_val);
+    /* worst-case items: numpairs + 4 split chunks per pair */
+    static rmt_item32_t items[600];
+    int n = 0;
+    int bit_pos = 0;
+    for (int p = 0; p < c.numpairs; p++) {
+        int idx = _read_bits(c.codes, bit_pos, c.bitcompression);
+        bit_pos += c.bitcompression;
+        uint16_t mark  = (uint16_t)(c.times[idx * 2]     * 10);
+        uint32_t space = (uint32_t)(c.times[idx * 2 + 1] * 10);
+        emit_pair(items, n, mark, space);
+        if (n > (int)(sizeof(items)/sizeof(items[0])) - 8) break;  /* safety */
+    }
+    rmt_write_items(TX_CH, items, n, true);
+}
+
+/* ---------- Midea 48-bit sender ---------- */
+static void send_midea(uint32_t hi, uint32_t lo, AppTvbgone* self,
+                       void (AppTvbgone::*set_carrier)(uint32_t))
+{
+    (self->*set_carrier)(38000);
+    uint8_t bytes[6] = {
+        (uint8_t)((hi >> 24) & 0xFF),
+        (uint8_t)((hi >> 16) & 0xFF),
+        (uint8_t)((hi >>  8) & 0xFF),
+        (uint8_t)((hi >>  0) & 0xFF),
+        (uint8_t)((lo >>  8) & 0xFF),
+        (uint8_t)((lo >>  0) & 0xFF),
+    };
+    rmt_item32_t items[160];
+    int n = 0;
+    auto header = [&]() {
+        emit_pair(items, n, 4400, 4400);
+    };
+    auto put_byte = [&](uint8_t b) {
+        for (int i = 7; i >= 0; i--) {
+            bool v = (b >> i) & 1;
+            emit_pair(items, n, 540, v ? 1620 : 540);
+        }
+    };
+    header();
+    for (int i = 0; i < 6; i++) put_byte(bytes[i]);
+    emit_pair(items, n, 540, 5200);
+    header();
+    for (int i = 0; i < 6; i++) put_byte((uint8_t)~bytes[i]);
+    emit_pair(items, n, 540, 30000);
+    rmt_write_items(TX_CH, items, n, true);
+}
+
+/* ---------- group / dispatch ---------- */
+int AppTvbgone::_group_size() const
+{
+    switch (_data.group) {
+        case G_NA:    return num_NAcodes;
+        case G_EU:    return num_EUcodes;
+        case G_MIDEA: return MIDEA_CODE_COUNT;
+    }
+    return 0;
+}
+
+void AppTvbgone::_send_at(int idx)
+{
+    if (!_data.rmt_inited) return;
+    switch (_data.group) {
+        case G_NA: {
+            if (idx < 0 || idx >= num_NAcodes) return;
+            const struct IrCode* p = NApowerCodes[idx];
+            snprintf(_data.last_label, sizeof(_data.last_label),
+                     "NA #%d  %ukHz", idx + 1, (unsigned)(p->timer_val / 1000));
+            send_shirriff(*p, this, &AppTvbgone::_set_carrier);
+            break;
+        }
+        case G_EU: {
+            if (idx < 0 || idx >= num_EUcodes) return;
+            const struct IrCode* p = EUpowerCodes[idx];
+            snprintf(_data.last_label, sizeof(_data.last_label),
+                     "EU #%d  %ukHz", idx + 1, (unsigned)(p->timer_val / 1000));
+            send_shirriff(*p, this, &AppTvbgone::_set_carrier);
+            break;
+        }
+        case G_MIDEA: {
+            if (idx < 0 || idx >= MIDEA_CODE_COUNT) return;
+            const midea_code_t& m = MIDEA_CODES[idx];
+            snprintf(_data.last_label, sizeof(_data.last_label), "%s", m.label);
+            send_midea(m.hi, m.lo, this, &AppTvbgone::_set_carrier);
+            break;
+        }
     }
 }
 
@@ -284,53 +252,79 @@ void AppTvbgone::_draw()
     _canvas->print("TV-B-Gone");
 
     char chip[24];
-    snprintf(chip, sizeof(chip), "%d/%d",
-             _data.mode == M_FIRING ? _data.fire_idx + 1 : _data.cursor + 1,
-             TVBGONE_CODE_COUNT);
+    int gsize = _group_size();
+    int active = (_data.mode == M_FIRING) ? _data.fire_idx : _data.cursor;
+    snprintf(chip, sizeof(chip), "%d/%d", active + 1, gsize);
     _canvas->setFont(FONT_SMALL);
     _canvas->setTextColor(_data.mode == M_FIRING ? COLOR_FIRING : COLOR_DIM_TEXT,
                           THEME_COLOR_BG);
     _canvas->drawRightString(chip, cw - 4, CHIP_Y, FONT_SMALL);
 
-    /* Panel: list 5 entries centered on cursor (or fire_idx in firing mode) */
+    /* Group tabs */
+    static const char* TAB_NAMES[] = { "NA TVs", "EU TVs", "Midea AC" };
+    int tab_w = cw / 3;
+    for (int i = 0; i < 3; i++) {
+        int tx = i * tab_w;
+        bool sel = (i == (int)_data.group);
+        uint32_t bg = sel ? COLOR_TAB_BG : THEME_COLOR_BG;
+        uint32_t fg = sel ? COLOR_ACCENT : COLOR_DIM_TEXT;
+        _canvas->fillSmoothRoundRect(tx + 2, TABS_Y - 1, tab_w - 4, 11, 2, bg);
+        _canvas->setTextColor(fg, bg);
+        int twpx = _canvas->textWidth(TAB_NAMES[i]);
+        _canvas->setCursor(tx + (tab_w - twpx) / 2, TABS_Y + 1);
+        _canvas->print(TAB_NAMES[i]);
+    }
+
+    /* Panel */
     _canvas->fillSmoothRoundRect(2, PANEL_Y, cw - 4, PANEL_H, 4, COLOR_PANEL_BG);
     _canvas->setFont(FONT_SMALL);
-    int active = (_data.mode == M_FIRING) ? _data.fire_idx : _data.cursor;
-    int window = 5;
+    int window = 4;
     int start = active - window / 2;
     if (start < 0) start = 0;
-    if (start > TVBGONE_CODE_COUNT - window) start = TVBGONE_CODE_COUNT - window;
+    if (start > gsize - window) start = gsize - window;
     if (start < 0) start = 0;
     int line_h = (PANEL_H - 6) / window;
     for (int i = 0; i < window; i++) {
         int idx = start + i;
-        if (idx >= TVBGONE_CODE_COUNT) break;
-        const tvbgone_code_t& c = TVBGONE_CODES[idx];
+        if (idx >= gsize) break;
         int y = PANEL_Y + 3 + i * line_h;
         bool is_active = (idx == active);
+        uint32_t row_bg = COLOR_PANEL_BG;
         if (is_active) {
-            uint32_t hl = (_data.mode == M_FIRING) ? (uint32_t)0x4A2828 : (uint32_t)0x3A3A60;
-            _canvas->fillSmoothRoundRect(4, y - 1, cw - 8, line_h, 2, hl);
+            row_bg = (_data.mode == M_FIRING) ? (uint32_t)0x4A2828 : (uint32_t)0x3A3A60;
+            _canvas->fillSmoothRoundRect(4, y - 1, cw - 8, line_h, 2, row_bg);
         }
-        const char* tag = "";
-        switch (c.proto) {
-            case PROTO_NEC: case PROTO_NEC_EXT:  tag = "NEC";   break;
-            case PROTO_RC5:                       tag = "RC5";   break;
-            case PROTO_SIRC12: case PROTO_SIRC15: case PROTO_SIRC20: tag = "SIRC"; break;
-            case PROTO_MIDEA:                     tag = "MIDEA"; break;
+        char label[24];
+        uint32_t freq_hz = 38000;
+        switch (_data.group) {
+            case G_NA: {
+                const struct IrCode* p = NApowerCodes[idx];
+                snprintf(label, sizeof(label), "NA #%d", idx + 1);
+                freq_hz = p->timer_val;
+                break;
+            }
+            case G_EU: {
+                const struct IrCode* p = EUpowerCodes[idx];
+                snprintf(label, sizeof(label), "EU #%d", idx + 1);
+                freq_hz = p->timer_val;
+                break;
+            }
+            case G_MIDEA: {
+                snprintf(label, sizeof(label), "%s", MIDEA_CODES[idx].label);
+                freq_hz = 38000;
+                break;
+            }
         }
-        _canvas->setTextColor(is_active ? COLOR_ACCENT : (uint32_t)0xE6E6E6,
-                              is_active ? ((_data.mode == M_FIRING) ? (uint32_t)0x4A2828 : (uint32_t)0x3A3A60)
-                                        : COLOR_PANEL_BG);
+        _canvas->setTextColor(is_active ? COLOR_ACCENT : (uint32_t)0xE6E6E6, row_bg);
         _canvas->setCursor(8, y + 1);
-        _canvas->print(c.label);
-        _canvas->setTextColor(COLOR_DIM_TEXT,
-                              is_active ? ((_data.mode == M_FIRING) ? (uint32_t)0x4A2828 : (uint32_t)0x3A3A60)
-                                        : COLOR_PANEL_BG);
-        _canvas->drawRightString(tag, cw - 8, y + 1, FONT_SMALL);
+        _canvas->print(label);
+        char freqbuf[8];
+        snprintf(freqbuf, sizeof(freqbuf), "%ukHz", (unsigned)(freq_hz / 1000));
+        _canvas->setTextColor(COLOR_DIM_TEXT, row_bg);
+        _canvas->drawRightString(freqbuf, cw - 8, y + 1, FONT_SMALL);
     }
 
-    /* Status line below panel */
+    /* Status */
     _canvas->setFont(FONT_SMALL);
     if (_data.mode == M_FIRING) {
         _canvas->setTextColor(COLOR_FIRING, THEME_COLOR_BG);
@@ -356,7 +350,7 @@ void AppTvbgone::_draw()
     if (_data.mode == M_FIRING)
         _canvas->print("Esc stop   HOME exit");
     else
-        _canvas->print("^v pick  S send  F fire all  HOME");
+        _canvas->print("^v pick  <> tab  S send  F fire");
 
     _canvas_update();
 }
@@ -370,28 +364,28 @@ void AppTvbgone::onCreate()
 void AppTvbgone::onResume()
 {
     ANIM_APP_OPEN();
+    _data.group = G_NA;
     _data.cursor = 0;
     _data.fire_idx = 0;
     _data.mode = M_IDLE;
-    _data.last_label = "";
     _data.next_send_ms = 0;
+    _data.last_label[0] = '\0';
     _begin_rmt();
     _draw();
 }
 
 void AppTvbgone::onRunning()
 {
-    /* Firing loop - send one code, wait ~250ms, advance. */
     if (_data.mode == M_FIRING) {
         uint32_t now = (uint32_t)millis();
         if (now >= _data.next_send_ms) {
-            _send_current();
-            _data.next_send_ms = now + 250;
+            _send_at(_data.fire_idx);
+            _data.next_send_ms = now + 150;     /* ~7 codes/sec */
             _draw();
             _data.fire_idx++;
-            if (_data.fire_idx >= TVBGONE_CODE_COUNT) {
+            if (_data.fire_idx >= _group_size()) {
                 _data.mode = M_IDLE;
-                _data.last_label = "done";
+                strncpy(_data.last_label, "done", sizeof(_data.last_label));
                 _draw();
             }
         }
@@ -404,10 +398,22 @@ void AppTvbgone::onRunning()
             bool handled = false;
             for (int k : st.hidKey) {
                 if (k == KEY_UP)   { if (_data.cursor > 0) _data.cursor--; handled = true; }
-                if (k == KEY_DOWN) { if (_data.cursor < TVBGONE_CODE_COUNT - 1) _data.cursor++; handled = true; }
+                if (k == KEY_DOWN) { if (_data.cursor < _group_size() - 1) _data.cursor++; handled = true; }
+                if (k == KEY_LEFT) {
+                    if (_data.group > 0) _data.group = (Group)((int)_data.group - 1);
+                    _data.cursor = 0;
+                    handled = true;
+                }
+                if (k == KEY_RIGHT) {
+                    if (_data.group < G_MIDEA) _data.group = (Group)((int)_data.group + 1);
+                    _data.cursor = 0;
+                    handled = true;
+                }
+                if (k == KEY_1) { _data.group = G_NA;    _data.cursor = 0; handled = true; }
+                if (k == KEY_2) { _data.group = G_EU;    _data.cursor = 0; handled = true; }
+                if (k == KEY_3) { _data.group = G_MIDEA; _data.cursor = 0; handled = true; }
                 if (k == KEY_S) {
-                    _data.fire_idx = _data.cursor;
-                    _send_current();
+                    _send_at(_data.cursor);
                     _data.mode = M_SINGLE;
                     handled = true;
                 }
