@@ -158,12 +158,15 @@ void AppSetWiFi::_update_state() {
         _canvas_update();
 
         _data.wifi_ssid = _data.repl_input_buffer;
-        _data.hal->setWifiSSID(_data.wifi_ssid.c_str());
+        /* Stage the SSID locally — don't touch NVS yet. We commit both
+         * fields atomically via hal->addWifiCredentials() once the password
+         * is entered, so the LRU rotation only happens once and partial
+         * input never pollutes a slot. */
 
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_wait_password;
-        spdlog::info("wifi ssid set: {}", _data.wifi_ssid);
+        spdlog::info("wifi ssid staged: {}", _data.wifi_ssid);
 
         if (*_wifi_password) {
             _data.repl_input_buffer = std::string(_wifi_password);
@@ -176,8 +179,13 @@ void AppSetWiFi::_update_state() {
         _data.repl_input_buffer = "";
         _data.current_state = state_connect;
 
-        _data.hal->setWifiPassword(_data.wifi_password.c_str());
-        spdlog::info("wifi password set: {}", _data.wifi_password);
+        /* Commit both fields atomically — pushes onto slot 0 with LRU
+         * rotation. If the new SSID already lives in a later slot, it
+         * gets promoted; if all five slots are full, the oldest (slot 4)
+         * is evicted. */
+        _data.hal->addWifiCredentials(_data.wifi_ssid.c_str(),
+                                     _data.wifi_password.c_str());
+        spdlog::info("wifi creds saved (rotated): ssid={}", _data.wifi_ssid);
         _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
         _canvas->printf("WiFi config:\n- %s\n- %s\nConnecting...\n", _data.wifi_ssid.c_str(), _data.wifi_password.c_str());
         _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
@@ -253,8 +261,26 @@ void AppSetWiFi::_update_state() {
     }
 
     if (_data.current_state == state_already_connected) {
+        /* Show what's actually associated right now (from the WiFi stack,
+         * not just slot 0 of NVS — they can differ briefly while the
+         * launcher's auto-sweep is still trying alternates). Plus a count
+         * of how many credentials are saved in the multi-slot store, so
+         * the user knows how many fallbacks are configured. */
+        String live_ssid = WiFi.SSID();
+        const char* live = live_ssid.c_str();
         _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
-        _canvas->printf("WiFi already set\n[y]off [e]edit [n]quit\n");
+        _canvas->printf("WiFi already set\n");
+        _canvas->setTextColor(TFT_GREENYELLOW, THEME_COLOR_BG);
+        _canvas->printf("Connected: %s\n", (live && *live) ? live : "(unknown)");
+        if (WiFi.status() == WL_CONNECTED) {
+            _canvas->printf("IP: %s\n", WiFi.localIP().toString().c_str());
+        }
+        _canvas->setTextColor(TFT_LIGHTGREY, THEME_COLOR_BG);
+        _canvas->printf("Saved networks: %u/%u\n",
+                        (unsigned)_data.hal->getWifiSlotCount(),
+                        (unsigned)WIFI_SLOT_MAX);
+        _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
+        _canvas->printf("[y]off [e]edit [n]quit\n");
         _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
         _canvas->printf(">>> ");
         _data.current_state = state_whether_disable_wifi;

@@ -169,8 +169,9 @@ void AppRadio::_update_state()
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_wait_password;
-         _data.hal->setWifiSSID(_data.wifi_ssid.c_str());
-        spdlog::info("wifi ssid set: {}", _data.wifi_ssid);
+        /* Stage SSID — final commit + LRU rotation happens once the
+         * password is entered (see state_wait_password below). */
+        spdlog::info("wifi ssid staged: {}", _data.wifi_ssid);
 
         if (*_wifi_password) {
             _data.repl_input_buffer = std::string(_wifi_password);
@@ -185,8 +186,11 @@ void AppRadio::_update_state()
         // Reset buffer
         _data.repl_input_buffer = "";
         _data.current_state = state_setup;
-        _data.hal->setWifiPassword(_data.wifi_password.c_str());
-        spdlog::info("wifi password set: {}", _data.wifi_password);
+        /* Commit both fields atomically — push onto slot 0 with LRU
+         * rotation across the 5-slot multi-credential store. */
+        _data.hal->addWifiCredentials(_data.wifi_ssid.c_str(),
+                                     _data.wifi_password.c_str());
+        spdlog::info("wifi creds saved (rotated): ssid={}", _data.wifi_ssid);
 
     }
 

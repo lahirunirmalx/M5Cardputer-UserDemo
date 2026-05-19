@@ -18,10 +18,42 @@ key,type,encoding,value
 # Lines starting with `#` are ignored by the generator.
 # -----------------------------------------------------------------------------
 
-# WiFi (read by hal.cpp via NVS namespace "wifi")
+# WiFi — five-slot LRU store, read by main/hal/hal.h::loadWifiFromNvs().
+#
+#   count  u8     number of valid slots in use (1..5). Set this to match the
+#                 number of ssidN/passN pairs you actually fill in.
+#   ssid0  str    most-recently-saved SSID — tried FIRST on boot
+#   pass0  str
+#   ssid1  str    next-most-recent fallback
+#   pass1  str
+#   ...    str    up to ssid4 / pass4
+#
+# On boot, the Launcher's auto-connect sweeps slot 0 → slot 4 with a 15 s
+# timeout each. The first SSID that associates wins and gets promoted to
+# slot 0 for the next reboot. When the Set WiFi app saves a new credential,
+# it pushes onto slot 0; if all five slots were already in use, the oldest
+# (slot 4) is evicted.
+#
+# Legacy fallback: if `count` is absent on a pre-existing device, the loader
+# reads the original single-slot keys `ssid` / `pass` into slot 0 — so
+# upgrading firmware on a device with an old NVS image still works without
+# re-provisioning.
+#
+# Fill in only as many slots as you have networks; leave the rest commented
+# out and lower `count` accordingly. Empty slots break the auto-connect
+# sweep (it skips them, but the count must be accurate).
 wifi,namespace,,
-ssid,data,string,YourWiFiSSID
-pass,data,string,YourWiFiPassword
+count,data,u8,1
+ssid0,data,string,YourPrimaryWiFiSSID
+pass0,data,string,YourPrimaryWiFiPassword
+# ssid1,data,string,YourSecondaryWiFiSSID
+# pass1,data,string,YourSecondaryWiFiPassword
+# ssid2,data,string,YourThirdWiFiSSID
+# pass2,data,string,YourThirdWiFiPassword
+# ssid3,data,string,YourFourthWiFiSSID
+# pass3,data,string,YourFourthWiFiPassword
+# ssid4,data,string,YourFifthWiFiSSID
+# pass4,data,string,YourFifthWiFiPassword
 
 # Claude usage API (read by app_claudemeter)
 #   base   = http://<host>:<port> (no trailing slash)

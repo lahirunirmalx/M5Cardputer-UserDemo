@@ -331,40 +331,71 @@ void Launcher::_port_update_system_state()
  
 void Launcher::_set_config()
 {
-          
-          _data.wifi_ssid = _data.hal->getWifiSSID();
-          _data.wifi_password = _data.hal->getWifiPassword();
+    /* Mirror slot 0 into the launcher-UI strings so the system bar shows the
+     * primary credential. */
+    _data.wifi_ssid     = _data.hal->getWifiSSID();
+    _data.wifi_password = _data.hal->getWifiPassword();
 
-        if (!_data.hal->isWifiConnected() && _data._retry_count < 3) {
-            _data._retry_count ++;
-            spdlog::info("Start wifi connection ... ");
-            spdlog::info(_data._retry_count);
+    if (_data.hal->isWifiConnected()) return;
 
-            WiFi.begin(_data.hal->getWifiSSID(), _data.hal->getWifiPassword());
-            WiFi.waitForConnectResult(20 * 1000);
-            // @todo logic to stop connecting after N number of fail attempts 
-  
-        if (WiFi.status() == WL_CONNECTED) {
-             spdlog::info("connected to : {} ",WIFI_SSID); 
-             _data.hal->setWifiConnected(true);
-             _data._retry_count = 0;
-            if (!esp_sntp_enabled()) {
-                setenv("TZ", TIME_ZONE, 1);
-                tzset();
-                esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
-                esp_sntp_setservername(0, "pool.ntp.org");
-                esp_sntp_init();
-                 spdlog::info("Time Zone set to : {} ",TIME_ZONE);
-               _data.hal->setSntpAdjusted(true);
-              spdlog::info("Done ");
-            } 
-        }else{
-            WiFi.disconnect(true);
-            WiFi.setAutoReconnect(true);
-            _data.hal->setWifiConnected(false);
-            _data._retry_count ++;
-        } 
+    uint8_t slots = _data.hal->getWifiSlotCount();
+    if (slots == 0) {
+        /* No credentials provisioned. User has to open Set WiFi. */
+        return;
+    }
+
+    /* Cap total connect attempts across boots within this Launcher
+     * lifetime so a broken AP doesn't keep us in a fast retry loop. One
+     * _set_config() call walks all `slots` until something connects. */
+    if (_data._retry_count >= 3) {
+        spdlog::info("WiFi: gave up after 3 sweeps; open Set WiFi to add new creds");
+        return;
+    }
+    _data._retry_count++;
+
+    spdlog::info("WiFi: scanning {} stored slot(s), pass {}", slots, _data._retry_count);
+
+    int winning_slot = -1;
+    for (uint8_t i = 0; i < slots; i++) {
+        const char* ssid = _data.hal->getWifiSSID(i);
+        const char* pass = _data.hal->getWifiPassword(i);
+        if (!ssid || !ssid[0]) continue;
+
+        spdlog::info("WiFi: trying slot {} SSID '{}'", i, ssid);
+        WiFi.begin(ssid, pass);
+        /* 15 s per slot — 5 slots × 15 s = 75 s worst case for a sweep. */
+        int res = WiFi.waitForConnectResult(15 * 1000);
+        if (res == WL_CONNECTED) {
+            winning_slot = i;
+            break;
         }
-       
-        
+        WiFi.disconnect(true);
+    }
+
+    if (winning_slot >= 0) {
+        spdlog::info("WiFi: connected on slot {} — promoting to slot 0", winning_slot);
+        _data.hal->setWifiConnected(true);
+        _data._retry_count = 0;
+
+        if (winning_slot > 0) _data.hal->promoteWifiSlot(winning_slot);
+
+        _data.wifi_ssid     = _data.hal->getWifiSSID();
+        _data.wifi_password = _data.hal->getWifiPassword();
+
+        if (!esp_sntp_enabled()) {
+            setenv("TZ", TIME_ZONE, 1);
+            tzset();
+            esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+            esp_sntp_setservername(0, "pool.ntp.org");
+            esp_sntp_init();
+            spdlog::info("Time Zone set to : {} ", TIME_ZONE);
+            _data.hal->setSntpAdjusted(true);
+            spdlog::info("Done ");
+        }
+    } else {
+        spdlog::info("WiFi: no saved network reachable on this sweep");
+        WiFi.disconnect(true);
+        WiFi.setAutoReconnect(true);
+        _data.hal->setWifiConnected(false);
+    }
 }
