@@ -26,3 +26,4 @@
 #include "app_resistor/app_resistor.h"
 #include "app_torch/app_torch.h"
 #include "app_sysinfo/app_sysinfo.h"
+#include "app_snake/app_snake.h"
