@@ -63,3 +63,16 @@ obj/
 
 sdkconfig
 sdkconfig.old
+
+# Plain-text NVS provisioning input (board WiFi + API creds — never commit).
+tools/nvs_keys.csv
+# Compiled NVS image (built from tools/nvs_keys.csv).
+tools/nvs.bin
+
+# Old release archive (332 MB — was committed once on the M5Cardputer fork and
+# stripped from history; keep it ignored so it can't slip back in via `git add .`).
+build_alpha.zip
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc
