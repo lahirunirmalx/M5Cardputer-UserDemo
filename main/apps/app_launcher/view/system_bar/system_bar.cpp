@@ -45,8 +45,10 @@ void Launcher::render_system_bar()
 
     // Bat
     if ((GetHAL().millis() - _data.bat_update_time_count) > 5000 || _data.bat_update_time_count == 0) {
-        auto bat_level = GetHAL().getBatLevel();
+        auto bat_level               = GetHAL().getBatLevel();
+        _data.system_state.bat_level = fmt::format("{}", bat_level);
         // mclog::tagInfo("system_bar", "get bat level: {}", bat_level);
+        // printf("b:%d\n", bat_level);
 
         if (bat_level >= 100) {
             _data.system_state.bat_state = 1;
@@ -94,7 +96,7 @@ void Launcher::render_system_bar()
         GetHAL().canvasSystemBar.pushImage(x, y, 16, 16, image_data_wifi5);
     }
 
-    // Bat
+    // Bat icon
     x = GetHAL().canvasSystemBar.width() - 45;
     y = 5;
 
@@ -107,6 +109,12 @@ void Launcher::render_system_bar()
     } else if (_data.system_state.bat_state == 4) {
         GetHAL().canvasSystemBar.pushImage(x, y, 32, 16, image_data_bat4);
     }
+
+    // Bat level
+    GetHAL().canvasSystemBar.setFont(&fonts::Font0);
+    GetHAL().canvasSystemBar.setTextColor((uint32_t)0x000000);
+    GetHAL().canvasSystemBar.drawCenterString(_data.system_state.bat_level.c_str(), 176,
+                                              GetHAL().canvasSystemBar.height() / 2 - 3);
 
     // Push
     GetHAL().pushCanvasSystemBar();

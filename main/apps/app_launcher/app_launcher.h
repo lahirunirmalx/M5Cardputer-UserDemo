@@ -19,19 +19,19 @@
 class Launcher : public mooncake::AppAbility {
 private:
     struct KeyboardBarState_t {
-        bool caps_lock = false;
-        bool fn        = false;
-        bool ctrl      = false;
-        bool opt       = false;
-        bool alt       = false;
+        bool shift = false;
+        bool fn    = false;
+        bool ctrl  = false;
+        bool opt   = false;
+        bool alt   = false;
 
         void reset()
         {
-            caps_lock = false;
-            fn        = false;
-            ctrl      = false;
-            opt       = false;
-            alt       = false;
+            shift = false;
+            fn    = false;
+            ctrl  = false;
+            opt   = false;
+            alt   = false;
         }
     };
 
@@ -39,8 +39,9 @@ private:
         // 1 ~ 5
         uint8_t wifi_state = 5;
         // 1 ~ 4
-        uint8_t bat_state = 1;
-        std::string time  = "12:34";
+        uint8_t bat_state     = 1;
+        std::string bat_level = "100%";
+        std::string time      = "12:34";
     };
 
     struct Data_t {
@@ -55,7 +56,7 @@ private:
         SystemState_t system_state;
 
         // Keyboard bar
-        KeyboardBarState_t keybaord_state;
+        KeyboardBarState_t keyboard_state;
 
         char string_buffer[100];
 

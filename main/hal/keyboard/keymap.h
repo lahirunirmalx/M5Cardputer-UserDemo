@@ -136,8 +136,7 @@ enum KeScanCode_t {
     KEY_INSERT     = 0x49,  // Keyboard Insert
     KEY_HOME       = 0x4a,  // Keyboard Home
     KEY_PAGEUP     = 0x4b,  // Keyboard Page Up
-                            // #define KEY_DELETE 0x4c // Keyboard Delete Forward
-    KEY_DELETE   = 0xD4,    // Keyboard Delete Forward
+    KEY_DELETE   = 0x4c,    // Keyboard Delete Forward
     KEY_END      = 0x4d,    // Keyboard End
     KEY_PAGEDOWN = 0x4e,    // Keyboard Page Down
     KEY_RIGHT    = 0x4f,    // Keyboard Right Arrow

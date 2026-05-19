@@ -833,6 +833,22 @@ static int nimble_hid_gap_event(struct ble_gap_event *event, void *arg)
             /* A new connection was established or a connection attempt failed. */
             ESP_LOGI(TAG, "connection %s; status=%d", event->connect.status == 0 ? "established" : "failed",
                      event->connect.status);
+            if (event->connect.status == 0) {
+                /* Request connection parameters optimised for a HID keyboard:
+                 * - 15-60 ms interval: responsive without hammering the radio
+                 * - latency: allows the device to skip a few intervals when idle;
+                 *   increases battery life.
+                 * - supervision timeout: tolerates brief radio gaps */
+                struct ble_gap_upd_params conn_params = {
+                    .itvl_min            = 12,   /* 15 ms (units of 1.25 ms) */
+                    .itvl_max            = 48,   /* 60 ms */
+                    .latency             = 8,    /* might skip up to 8 intervals */
+                    .supervision_timeout = 600,  /* 6000 ms (units of 10 ms) */
+                    .min_ce_len          = 0,
+                    .max_ce_len          = 0,
+                };
+                ble_gap_update_params(event->connect.conn_handle, &conn_params);
+            }
             return 0;
             break;
         case BLE_GAP_EVENT_DISCONNECT:

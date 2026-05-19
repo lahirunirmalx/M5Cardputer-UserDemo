@@ -2,12 +2,12 @@
     {
         "url": "https://github.com/m5stack/M5GFX.git",
         "path": "components/M5GFX",
-        "branch": "0.2.10"
+        "branch": "0.2.15"
     },
     {
         "url": "https://github.com/m5stack/M5Unified.git",
         "path": "components/M5Unified",
-        "branch": "0.2.8"
+        "branch": "0.2.10"
     },
     {
         "url": "https://github.com/Forairaaaaa/mooncake.git",

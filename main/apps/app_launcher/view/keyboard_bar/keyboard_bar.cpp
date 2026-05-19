@@ -38,35 +38,35 @@ void Launcher::render_keyboard_bar()
     int height = 17;
     int gap_y  = 3;
 
-    if (_data.keybaord_state.caps_lock) {
+    if (_data.keyboard_state.shift) {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_Aa);
     } else {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_Aa0);
     }
 
     y = y + height + gap_y;
-    if (_data.keybaord_state.fn) {
+    if (_data.keyboard_state.fn) {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_fn);
     } else {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_fn0);
     }
 
     y = y + height + gap_y;
-    if (_data.keybaord_state.ctrl) {
+    if (_data.keyboard_state.ctrl) {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_crtl);
     } else {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_ctrl0);
     }
 
     y = y + height + gap_y;
-    if (_data.keybaord_state.opt) {
+    if (_data.keyboard_state.opt) {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_opt);
     } else {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_opt1);
     }
 
     y = y + height + gap_y;
-    if (_data.keybaord_state.alt) {
+    if (_data.keyboard_state.alt) {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_alt);
     } else {
         GetHAL().canvasKeyboardBar.pushImage(x, y, width, height, image_data_alt0);
@@ -80,29 +80,31 @@ void Launcher::start_keyboard_bar()
 {
     GetHAL().keyboard.onKeyEvent.connect([this](const Keyboard::KeyEvent_t& keyEvent) {
         bool need_render = false;
-        switch (keyEvent.keyCode) {
-            case KEY_CAPSLOCK:
-                _data.keybaord_state.caps_lock = keyEvent.state;
-                need_render                    = true;
-                break;
-            case KEY_LEFTCTRL:
-                _data.keybaord_state.ctrl = keyEvent.state;
-                need_render               = true;
-                break;
-            case KEY_LEFTMETA:
-                _data.keybaord_state.opt = keyEvent.state;
-                need_render              = true;
-                break;
-            case KEY_LEFTALT:
-                _data.keybaord_state.alt = keyEvent.state;
-                need_render              = true;
-                break;
-            case KEY_LEFTSHIFT:
-                _data.keybaord_state.fn = keyEvent.state;
-                need_render             = true;
-                break;
-            default:
-                break;
+        // Fn key emits KEY_NONE with isModifier - handle before the switch
+        if (keyEvent.keyCode == KEY_NONE && keyEvent.isModifier) {
+            _data.keyboard_state.fn = keyEvent.state;
+            need_render             = true;
+        } else {
+            switch (keyEvent.keyCode) {
+                case KEY_LEFTSHIFT:
+                    _data.keyboard_state.shift = keyEvent.state;
+                    need_render                = true;
+                    break;
+                case KEY_LEFTCTRL:
+                    _data.keyboard_state.ctrl = keyEvent.state;
+                    need_render               = true;
+                    break;
+                case KEY_LEFTMETA:
+                    _data.keyboard_state.opt = keyEvent.state;
+                    need_render              = true;
+                    break;
+                case KEY_LEFTALT:
+                    _data.keyboard_state.alt = keyEvent.state;
+                    need_render              = true;
+                    break;
+                default:
+                    break;
+            }
         }
 
         if (need_render) {
