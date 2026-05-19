@@ -24,10 +24,12 @@ namespace lgfx // This should not be changed to "m5gfx"
     , board_M5AirQ
     , board_M5VAMeter
     , board_M5StackCoreS3SE
+    , board_M5AtomS3R
 
 /// non display boards 
-    , board_M5Atom = 128
-    , board_M5ATOM = board_M5Atom
+    , board_M5AtomLite = 128
+    , board_M5ATOM __attribute__ ((deprecated)) = board_M5AtomLite
+    , board_M5Atom __attribute__ ((deprecated)) = board_M5AtomLite
     , board_M5AtomPsram
     , board_M5AtomU
     , board_M5Camera
@@ -40,6 +42,10 @@ namespace lgfx // This should not be changed to "m5gfx"
     , board_M5AtomS3U
     , board_M5Capsule
     , board_M5NanoC6
+    , board_M5AtomMatrix
+    , board_M5AtomEcho
+    , board_M5AtomS3RExt
+    , board_M5AtomS3RCam
 
 /// external displays
     , board_M5AtomDisplay = 192
@@ -52,6 +58,8 @@ namespace lgfx // This should not be changed to "m5gfx"
     , board_M5UnitRCA
     , board_M5ModuleDisplay
     , board_M5ModuleRCA
+
+    , board_FrameBuffer = 512
     };
   }
   using namespace boards;

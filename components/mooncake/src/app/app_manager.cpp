@@ -10,16 +10,13 @@
  */
 #include "app_manager.h"
 
-
 using namespace MOONCAKE;
-
 
 APP_Manager::~APP_Manager()
 {
     /* Free all the app's memory */
     destroyAllApps();
 }
-
 
 APP_BASE* APP_Manager::createApp(APP_PACKER_BASE* appPacker)
 {
@@ -49,7 +46,6 @@ APP_BASE* APP_Manager::createApp(APP_PACKER_BASE* appPacker)
     return new_app;
 }
 
-
 int APP_Manager::_search_app_lifecycle_list(APP_BASE* app)
 {
     if (app == nullptr)
@@ -63,7 +59,6 @@ int APP_Manager::_search_app_lifecycle_list(APP_BASE* app)
     return -1;
 }
 
-
 int APP_Manager::_search_app_create_buffer(APP_BASE* app)
 {
     if (app == nullptr)
@@ -76,7 +71,6 @@ int APP_Manager::_search_app_create_buffer(APP_BASE* app)
     }
     return -1;
 }
-
 
 bool APP_Manager::startApp(APP_BASE* app)
 {
@@ -96,31 +90,30 @@ bool APP_Manager::startApp(APP_BASE* app)
     /* Update state */
     switch (_app_lifecycle_list[index].state)
     {
-        case ON_CREATE:
-            _app_lifecycle_list[index].state = ON_RESUME;
-            break;
-        case ON_RESUME:
-            /* Do nothing */
-            break;
-        case ON_RUNNING:
-            /* Do nothing */
-            break;
-        case ON_RUNNING_BG:
-            _app_lifecycle_list[index].state = ON_RESUME;
-            break;
-        case ON_PAUSE:
-            _app_lifecycle_list[index].state = ON_RESUME;
-            break;
-        case ON_DESTROY:
-            /* Not gonna happen */
-            break;
-        default:
-            break;
+    case ON_CREATE:
+        _app_lifecycle_list[index].state = ON_RESUME;
+        break;
+    case ON_RESUME:
+        /* Do nothing */
+        break;
+    case ON_RUNNING:
+        /* Do nothing */
+        break;
+    case ON_RUNNING_BG:
+        _app_lifecycle_list[index].state = ON_RESUME;
+        break;
+    case ON_PAUSE:
+        _app_lifecycle_list[index].state = ON_RESUME;
+        break;
+    case ON_DESTROY:
+        /* Not gonna happen */
+        break;
+    default:
+        break;
     }
 
     return true;
 }
-
 
 bool APP_Manager::closeApp(APP_BASE* app)
 {
@@ -140,35 +133,34 @@ bool APP_Manager::closeApp(APP_BASE* app)
     /* Update state */
     switch (_app_lifecycle_list[index].state)
     {
-        case ON_CREATE:
-            /* Do nothing */
-            break;
-        case ON_RESUME:
-            _app_lifecycle_list[index].state = ON_PAUSE;
-            break;
-        case ON_RUNNING:
-            _app_lifecycle_list[index].state = ON_PAUSE;
-            break;
-        case ON_RUNNING_BG:
-            /* Do nothing */
-            break;
-        case ON_PAUSE:
-            /* Do nothing */
-            break;
-        case ON_DESTROY:
-            /* Not gonna happen */
-            break;
-        default:
-            break;
+    case ON_CREATE:
+        /* Do nothing */
+        break;
+    case ON_RESUME:
+        _app_lifecycle_list[index].state = ON_PAUSE;
+        break;
+    case ON_RUNNING:
+        _app_lifecycle_list[index].state = ON_PAUSE;
+        break;
+    case ON_RUNNING_BG:
+        /* Do nothing */
+        break;
+    case ON_PAUSE:
+        /* Do nothing */
+        break;
+    case ON_DESTROY:
+        /* Not gonna happen */
+        break;
+    default:
+        break;
     }
 
     return true;
 }
 
-
 void APP_Manager::update()
 {
-    /* Iterate the stuff out */
+    /* Iterate the shit out */
     for (auto iter = _app_lifecycle_list.begin(); iter != _app_lifecycle_list.end();)
     {
         /* If app wants to be started */
@@ -204,37 +196,36 @@ void APP_Manager::update()
             iter->state = ON_DESTROY;
         }
 
-
         /* Lifecycle FSM */
         switch (iter->state)
         {
-            case ON_CREATE:
-                /* Do nothing */
-                break;
-            case ON_RESUME:
-                iter->app->onResume();
-                iter->state = ON_RUNNING;
-                break;
-            case ON_RUNNING:
-                iter->app->onRunning();
-                break;
-            case ON_RUNNING_BG:
-                iter->app->onRunningBG();
-                break;
-            case ON_PAUSE:
-                iter->app->onPause();
-                iter->state = ON_RUNNING_BG;
-                break;
-            case ON_DESTROY:
-                /* Same as destroyApp() */
-                iter->app->onPause();
-                iter->app->onDestroy();
-                iter->app->getAppPacker()->deleteApp(iter->app);
-                /* Remove and update iterator */
-                iter = _app_lifecycle_list.erase(iter);
-                continue;
-            default:
-                break;
+        case ON_CREATE:
+            /* Do nothing */
+            break;
+        case ON_RESUME:
+            iter->app->onResume();
+            iter->state = ON_RUNNING;
+            break;
+        case ON_RUNNING:
+            iter->app->onRunning();
+            break;
+        case ON_RUNNING_BG:
+            iter->app->onRunningBG();
+            break;
+        case ON_PAUSE:
+            iter->app->onPause();
+            iter->state = ON_RUNNING_BG;
+            break;
+        case ON_DESTROY:
+            /* Same as destroyApp() */
+            iter->app->onPause();
+            iter->app->onDestroy();
+            iter->app->getAppPacker()->deleteApp(iter->app);
+            /* Remove and update iterator */
+            iter = _app_lifecycle_list.erase(iter);
+            continue;
+        default:
+            break;
         }
 
         /* Next */
@@ -252,7 +243,6 @@ void APP_Manager::update()
     }
 }
 
-
 bool APP_Manager::destroyApp(APP_BASE* app)
 {
     if (app == nullptr)
@@ -268,7 +258,7 @@ bool APP_Manager::destroyApp(APP_BASE* app)
         }
     }
 
-    /* Iterate the stuff out */
+    /* Iterate the shit out */
     for (auto iter = _app_lifecycle_list.begin(); iter != _app_lifecycle_list.end(); iter++)
     {
         if (iter->app == app)
@@ -292,10 +282,9 @@ bool APP_Manager::destroyApp(APP_BASE* app)
     return false;
 }
 
-
 void APP_Manager::destroyAllApps()
 {
-    /* Iterate the stuff out */
+    /* Iterate the shit out */
     for (auto& i : _app_lifecycle_list)
     {
         /* Call app's onPause method */

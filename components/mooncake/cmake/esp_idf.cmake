@@ -22,6 +22,7 @@ set(MOONCAKE_BUILTIN_APPS_INCS
 
 # Public component requirement
 set(MOONCAKE_REQUIRES
+
 )
 
 # Private component requirement

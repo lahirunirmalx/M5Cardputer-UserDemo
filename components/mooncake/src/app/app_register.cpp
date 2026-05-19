@@ -10,16 +10,13 @@
  */
 #include "app_register.h"
 
-
 using namespace MOONCAKE;
-
 
 APP_Register::~APP_Register()
 {
     /* Free all the app packers' memory */
     uninstallAllApps();
 }
-
 
 bool APP_Register::install(APP_PACKER_BASE* appPacker, void* userData)
 {
@@ -38,13 +35,12 @@ bool APP_Register::install(APP_PACKER_BASE* appPacker, void* userData)
     return true;
 }
 
-
 bool APP_Register::uninstall(APP_PACKER_BASE* appPacker, bool freeMemory)
 {
     if (appPacker == nullptr)
         return false;
 
-    /* Iterate the stuff out */
+    /* Iterate the shit out */
     for (auto iter = _app_packer_list.begin(); iter != _app_packer_list.end(); iter++)
     {
         if (*iter == appPacker)
@@ -61,7 +57,6 @@ bool APP_Register::uninstall(APP_PACKER_BASE* appPacker, bool freeMemory)
     return false;
 }
 
-
 void APP_Register::uninstallAllApps(bool freeMemory)
 {
     /* Free all the packers' memory */
@@ -75,13 +70,12 @@ void APP_Register::uninstallAllApps(bool freeMemory)
     _app_packer_list.clear();
 }
 
-
 bool APP_Register::isAppInstalled(APP_PACKER_BASE* appPacker)
 {
     if (appPacker == nullptr)
         return false;
 
-    /* Iterate the stuff out */
+    /* Iterate the shit out */
     for (const auto& i : _app_packer_list)
     {
         if (i == appPacker)

@@ -81,15 +81,13 @@ namespace lgfx
 
   namespace spi
   {
-    cpp::result<void, error_t> init(int spi_host, int spi_sclk, int spi_miso, int spi_mosi)  { cpp::result<void, error_t> res = {}; return res; }
+    cpp::result<void, error_t> init(int spi_host, int spi_sclk, int spi_miso, int spi_mosi)  { return cpp::fail(error_t::unknown_err); }
     void release(int spi_host) {}
-    void beginTransaction(int spi_host, uint32_t freq, int spi_mode) {
-      SPISettings setting(freq, MSBFIRST, SPI_MODE0);
-      SPI.beginTransaction(setting);
-    }
-    void endTransaction(int spi_host) {SPI.endTransaction();}
+    void beginTransaction(int spi_host, uint32_t freq, int spi_mode) {}
+    void endTransaction(int spi_host) {}
     void writeBytes(int spi_host, const uint8_t* data, size_t length) {}
-    void readBytes(int spi_host, uint8_t* data, size_t length) {SPI.transfer(data, length);}  }
+    void readBytes(int spi_host, uint8_t* data, size_t length) {}
+  }
 
 //----------------------------------------------------------------------------
 
@@ -101,12 +99,7 @@ namespace lgfx
     cpp::result<void, error_t> beginTransaction(int i2c_port, int i2c_addr, uint32_t freq, bool read) { return cpp::fail(error_t::unknown_err); }
     cpp::result<void, error_t> endTransaction(int i2c_port) { return cpp::fail(error_t::unknown_err); }
     cpp::result<void, error_t> writeBytes(int i2c_port, const uint8_t *data, size_t length) { return cpp::fail(error_t::unknown_err); }
-<<<<<<< HEAD:components/LovyanGFX/src/lgfx/v1/platforms/arduino_default/common.cpp
-    cpp::result<void, error_t> readBytes(int i2c_port, uint8_t *data, size_t length) { return cpp::fail(error_t::unknown_err); }
-    cpp::result<void, error_t> readBytes(int i2c_port, uint8_t *data, size_t length, bool last_nack) { return cpp::fail(error_t::unknown_err); }
-=======
     cpp::result<void, error_t> readBytes(int i2c_port, uint8_t *data, size_t length, bool last_nack = false) { return cpp::fail(error_t::unknown_err); }
->>>>>>> origin/main:components/M5GFX/src/lgfx/v1/platforms/sdl/common.cpp
 
 //--------
 
