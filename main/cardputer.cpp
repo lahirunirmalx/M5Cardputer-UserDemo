@@ -114,28 +114,28 @@ extern "C" void app_main(void)
 
     // Install apps
     mooncake.installApp(new APPS::AppWifiScan_Packer);
-    mooncake.installApp(new APPS::AppRadio_Packer);
+   // mooncake.installApp(new APPS::AppRadio_Packer);
     mooncake.installApp(new APPS::AppTimer_Packer);
-    mooncake.installApp(new APPS::AppRecord_Packer);
-    mooncake.installApp(new APPS::AppChat_Packer);
-    mooncake.installApp(new APPS::AppIR_Packer);
-    mooncake.installApp(new APPS::AppREPL_Packer);
+  //  mooncake.installApp(new APPS::AppRecord_Packer);
+  //  mooncake.installApp(new APPS::AppChat_Packer);
+  //  mooncake.installApp(new APPS::AppIR_Packer);
+  //  mooncake.installApp(new APPS::AppREPL_Packer);
     mooncake.installApp(new APPS::AppKeyboard_Packer);
     mooncake.installApp(new APPS::AppSetWiFi_Packer);
     mooncake.installApp(new APPS::AppTextEditor_Packer);
-    mooncake.installApp(new APPS::AppHello_Packer);
-    mooncake.installApp(new APPS::AppLed_Packer);
+    //mooncake.installApp(new APPS::AppHello_Packer);
+    //mooncake.installApp(new APPS::AppLed_Packer);
     mooncake.installApp(new APPS::AppFilesManager_Packer);
-    mooncake.installApp(new APPS::AppMp3_Packer);
+    //mooncake.installApp(new APPS::AppMp3_Packer);
     mooncake.installApp(new APPS::AppCalculator_Packer);
-    mooncake.installApp(new APPS::AppResistor_Packer);
-    mooncake.installApp(new APPS::AppGemini_Packer);
-    mooncake.installApp(new APPS::AppTorch_Packer);
-    mooncake.installApp(new APPS::AppSysinfo_Packer);
-    mooncake.installApp(new APPS::AppSnake_Packer);
-    mooncake.installApp(new APPS::AppTicTacToe_Packer);
-    mooncake.installApp(new APPS::AppTvbgone_Packer);
-    mooncake.installApp(new APPS::AppBlePair_Packer);
+   // mooncake.installApp(new APPS::AppResistor_Packer);
+   // mooncake.installApp(new APPS::AppGemini_Packer);
+    //mooncake.installApp(new APPS::AppTorch_Packer);
+    //mooncake.installApp(new APPS::AppSysinfo_Packer);
+   // mooncake.installApp(new APPS::AppSnake_Packer);
+   // mooncake.installApp(new APPS::AppTicTacToe_Packer);
+    //mooncake.installApp(new APPS::AppTvbgone_Packer);
+    //mooncake.installApp(new APPS::AppBlePair_Packer);
     mooncake.installApp(new APPS::AppClaudeMeter_Packer);
 
     // Create launcher

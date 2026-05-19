@@ -254,7 +254,7 @@ void AppSetWiFi::_update_state() {
 
     if (_data.current_state == state_already_connected) {
         _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
-        _canvas->printf("WiFi already set\nTurn off WiFi? [y/n]\n");
+        _canvas->printf("WiFi already set\n[y]off [e]edit [n]quit\n");
         _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
         _canvas->printf(">>> ");
         _data.current_state = state_whether_disable_wifi;
@@ -262,15 +262,27 @@ void AppSetWiFi::_update_state() {
     } else if (_data.current_state == state_whether_disable_wifi) {
         if (_data.repl_input_buffer == "y") {
             WiFi.disconnect(true);
+            _data.hal->setWifiConnected(false);
             _canvas->setTextColor(TFT_ORANGE, THEME_COLOR_BG);
             _canvas->printf("WiFi off\n");
+            _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
+            _canvas->printf(">>> ");
+            _data.current_state = state_wait_quit;
+        } else if (_data.repl_input_buffer == "e" || _data.repl_input_buffer == "E") {
+            /* Re-enter SSID/password without dropping the active link until
+             * the new creds are committed (state_connect calls WiFi.begin). */
+            _data.repl_input_buffer.clear();
+            _data.wifi_ssid.clear();
+            _data.wifi_password.clear();
+            _data._alreay_connected = false;
+            _data.current_state = state_init;
+            _update_state();
+            return;
         } else {
             _canvas->printf("cancel\n");
             destroyApp();
+            return;
         }
-        _canvas->setTextColor(THEME_COLOR_REPL_TEXT, THEME_COLOR_BG);
-        _canvas->printf(">>> ");
-        _data.current_state = state_wait_quit;
     }
 }
 

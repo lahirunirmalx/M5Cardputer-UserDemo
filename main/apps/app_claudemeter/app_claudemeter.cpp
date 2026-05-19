@@ -9,8 +9,9 @@
  *        . / / / ] / → next screen
  *        R   force refresh
  *        M   toggle mute (suppress red beep)
- *        E   open Settings + start editing (bearer / base URL)
- *        T   switch field on Settings screen
+ *        S / E   open Settings + start editing (bearer / base URL)
+ *        ; / .   switch field on Settings screen (cardputer up/down)
+ *        T   switch field on Settings screen (also works while editing)
  *        Enter (in edit) save + commit to NVS
  *        B   exit to background (task keeps polling)
  *        X   stop polling + exit
@@ -944,44 +945,65 @@ void AppClaudeMeter::_draw_settings()
     _canvas->setFont(FONT_REPL);
     _canvas->setTextSize(1);
 
-    auto draw_field = [&](int idx, const char* label, const char* value, bool secret, bool selected) {
-        int y = 22 + idx * 22;
-        _canvas->setTextColor(selected ? COLOR_ACCENT : COLOR_LABEL, COLOR_PANEL_BG);
-        _canvas->setCursor(6, y);
-        _canvas->print(label);
-        _canvas->setTextColor(COLOR_VALUE, COLOR_PANEL_BG);
-        _canvas->setCursor(6, y + 11);
-        char buf[64];
-        if (_data.editing && selected) {
-            /* Show the current edit buffer with a blinking caret. The caret
-             * blink is implicit via the 1s redraw tick. */
-            const char* src = _data.edit_buffer.c_str();
-            size_t L = strlen(src);
-            /* Show last ~28 chars so the right edge is visible. */
-            const char* shown = (L > 28) ? src + (L - 28) : src;
-            snprintf(buf, sizeof(buf), "%s_", shown);
-        } else if (secret) {
-            mask_secret(value, buf, sizeof(buf));
-        } else if (value[0] == '\0') {
-            snprintf(buf, sizeof(buf), "(empty)");
-        } else {
-            strncpy(buf, value, sizeof(buf) - 1);
-            buf[sizeof(buf) - 1] = '\0';
-        }
-        _canvas->print(buf);
-    };
+    const char* label = (_data.edit_field == SF_Bearer) ? "Bearer token" : "Base URL";
+    bool secret      = (_data.edit_field == SF_Bearer);
+    const char* val  = (_data.edit_field == SF_Bearer) ? g_bearer : g_base_url;
 
-    draw_field(0, "Bearer token",  g_bearer,    true,  _data.edit_field == SF_Bearer);
-    draw_field(1, "Base URL",      g_base_url,  false, _data.edit_field == SF_Base);
+    /* Field label + "1/2" position indicator */
+    _canvas->setTextColor(COLOR_ACCENT, COLOR_PANEL_BG);
+    _canvas->setCursor(6, 22);
+    _canvas->print(label);
+    char idx[8];
+    snprintf(idx, sizeof(idx), "%d/%d", _data.edit_field + 1, (int)SF_COUNT);
+    _canvas->setTextColor(COLOR_LABEL, COLOR_PANEL_BG);
+    _canvas->drawRightString(idx, cw - 8, 22, FONT_REPL);
 
-    /* Bottom hint specific to this screen */
+    /* Value display, wrapped over up to 4 lines so the bearer token doesn't
+     * collide with the hint row. If the value still overflows, we show the
+     * trailing window so the user can see what they're typing. */
+    char buf[200];
+    if (_data.editing) {
+        const char* src = _data.edit_buffer.c_str();
+        snprintf(buf, sizeof(buf), "%s_", src);
+    } else if (secret) {
+        mask_secret(val, buf, sizeof(buf));
+    } else if (val[0] == '\0') {
+        snprintf(buf, sizeof(buf), "(empty)");
+    } else {
+        strncpy(buf, val, sizeof(buf) - 1);
+        buf[sizeof(buf) - 1] = '\0';
+    }
+
+    const int CHARS_PER_LINE = 24;
+    const int MAX_LINES      = 4;
+    const int line_h         = 12;
+    const int line_y0        = 36;
+
+    int len = (int)strlen(buf);
+    int window = CHARS_PER_LINE * MAX_LINES;
+    int start  = (len > window) ? (len - window) : 0;
+
+    _canvas->setTextColor(COLOR_VALUE, COLOR_PANEL_BG);
+    for (int line = 0; line < MAX_LINES; line++) {
+        int off = start + line * CHARS_PER_LINE;
+        if (off >= len) break;
+        int chunk = len - off;
+        if (chunk > CHARS_PER_LINE) chunk = CHARS_PER_LINE;
+        char tmp[CHARS_PER_LINE + 1];
+        memcpy(tmp, buf + off, chunk);
+        tmp[chunk] = '\0';
+        _canvas->setCursor(6, line_y0 + line * line_h);
+        _canvas->print(tmp);
+    }
+
+    /* Bottom hint */
     _canvas->setFont(FONT_SMALL);
     _canvas->setTextColor(COLOR_LABEL, COLOR_PANEL_BG);
-    _canvas->setCursor(6, 18 + 78 - 12);
+    _canvas->setCursor(6, 18 + 78 - 11);
     if (_data.editing)
-        _canvas->print("Enter=save  T=switch field");
+        _canvas->print("Enter=save, then ;/. switch");
     else
-        _canvas->print("E=edit  T=switch field");
+        _canvas->print("S=edit  ;/.=switch");
 
     _draw_footer();
     _canvas_update();
@@ -1050,6 +1072,24 @@ void AppClaudeMeter::onRunning()
             /* Settings edit mode swallows all input until Enter (save) or
              * ESC/HOME (cancel). */
             if (_data.editing) {
+                /* UP/DOWN switch field while editing — discards the in-flight
+                 * edit_buffer in favor of the new field's persisted value. */
+                bool field_switched = false;
+                for (int hk : st.hidKey) {
+                    if (hk == KEY_UP || hk == KEY_DOWN) {
+                        int n = (int)SF_COUNT;
+                        int dir = (hk == KEY_UP) ? -1 : +1;
+                        _data.edit_field = ((_data.edit_field + dir) % n + n) % n;
+                        _data.edit_buffer = (_data.edit_field == SF_Bearer) ? g_bearer : g_base_url;
+                        field_switched = true;
+                        break;
+                    }
+                }
+                if (field_switched) {
+                    _draw();
+                    _data.last_key_num = _keyboard->keyList().size();
+                    return;
+                }
                 if (st.enter) {
                     /* Commit edit_buffer into the active field, persist. */
                     if (_data.edit_field == SF_Bearer) {
@@ -1090,9 +1130,27 @@ void AppClaudeMeter::onRunning()
             for (int hk : st.hidKey) {
                 if (hk == KEY_LEFT)  { _next_screen(-1); break; }
                 if (hk == KEY_RIGHT) { _next_screen(+1); break; }
+                if (_data.screen == S_Settings && (hk == KEY_UP || hk == KEY_DOWN)) {
+                    int n = (int)SF_COUNT;
+                    int dir = (hk == KEY_UP) ? -1 : +1;
+                    _data.edit_field = ((_data.edit_field + dir) % n + n) % n;
+                    _draw();
+                    break;
+                }
             }
 
             for (char c : st.values) {
+                /* Settings screen: ';' = field up, '.' = field down (matches
+                 * cardputer-native up/down convention used by app_files etc.).
+                 * Must run before the global ',/.' screen-nav handler so '.'
+                 * doesn't fall through to next-screen. */
+                if (_data.screen == S_Settings && (c == ';' || c == '.')) {
+                    int n = (int)SF_COUNT;
+                    int dir = (c == ';') ? -1 : +1;
+                    _data.edit_field = ((_data.edit_field + dir) % n + n) % n;
+                    _draw();
+                    break;
+                }
                 if (c == ',' || c == '[')  { _next_screen(-1); break; }
                 if (c == '/' || c == ']' || c == '.') { _next_screen(+1); break; }
                 if (c == 'r' || c == 'R')  { kick_refresh(); _draw(); break; }
@@ -1101,7 +1159,7 @@ void AppClaudeMeter::onRunning()
                     _draw();
                     break;
                 }
-                if (c == 'e' || c == 'E')  {
+                if (c == 'e' || c == 'E' || c == 's' || c == 'S')  {
                     /* Jump to Settings screen and start editing. Tab cycles
                      * between bearer / base url. */
                     _data.screen = S_Settings;

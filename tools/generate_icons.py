@@ -64,6 +64,17 @@ P_ORANGE   = (240,  96,  32)
 P_YELLOW   = (224, 224, 192)
 P_RED      = (200,   0,   0)
 
+# Palette used when quantizing user-supplied images (BG is intentionally excluded —
+# shapes should never quantize to the launcher background, that's reserved for the
+# canvas around the shape).
+PALETTE = [
+    P_BLACK, P_WHITE, P_LGRAY, P_GRAY, P_DGRAY,
+    P_LBLUE, P_CYAN, P_TEAL, P_BLUE, P_NAVY,
+    P_MAGENTA, P_PINK, P_PURPLE, P_LAVENDER,
+    P_BROWN, P_TAN, P_LIME, P_GREEN, P_DGREEN,
+    P_ORANGE, P_YELLOW, P_RED,
+]
+
 def rgb_to_565(r, g, b):
     return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
 
@@ -93,6 +104,80 @@ def emit_header(path, varname, side, data, comment):
 
 def fresh(side):
     return Image.new("RGB", (side, side), BG_RGB)
+
+def _palette_image():
+    """Build a PIL P-mode image carrying PALETTE for fast nearest-color quantize."""
+    pal = Image.new("P", (1, 1))
+    flat = []
+    for c in PALETTE:
+        flat.extend(c)
+    # PIL needs a 256-entry palette; pad with black.
+    flat.extend([0, 0, 0] * (256 - len(PALETTE)))
+    pal.putpalette(flat)
+    return pal
+
+def image_to_icon(src_path, side, *, seam=True, bg=BG_RGB, alpha_threshold=128,
+                  mono_color=None):
+    """Convert an arbitrary image file into a flat, palette-quantized icon.
+
+    Pipeline:
+      1. open and split alpha (synthesizes full-opaque alpha for RGB/JPEG inputs)
+      2. center-square crop so non-square sources don't get stretched
+      3. LANCZOS downscale to `side`x`side`
+      4. quantize the RGB plane to PALETTE with no dithering (sharp, retro look)
+         — OR, if mono_color is set, every opaque pixel becomes mono_color (silhouette)
+      5. composite quantized shape onto BG using the resized alpha mask
+      6. optional 1px black "seam" outline drawn into the BG side of every shape
+         boundary so the icon reads cleanly on the bright green launcher panel
+
+    Inputs without an alpha channel keep their entire frame as the shape — pre-cut
+    transparency in your source PNG for best results.
+    """
+    src = Image.open(src_path)
+    rgba = src.convert("RGBA")
+    alpha = rgba.split()[-1]
+    rgb = rgba.convert("RGB")
+
+    w, h = rgb.size
+    if w != h:
+        s_src = min(w, h)
+        l = (w - s_src) // 2
+        t = (h - s_src) // 2
+        rgb = rgb.crop((l, t, l + s_src, t + s_src))
+        alpha = alpha.crop((l, t, l + s_src, t + s_src))
+
+    rgb = rgb.resize((side, side), Image.LANCZOS)
+    alpha = alpha.resize((side, side), Image.LANCZOS)
+
+    if mono_color is None:
+        quantized = rgb.quantize(palette=_palette_image(), dither=0).convert("RGB")
+        qp = quantized.load()
+    else:
+        qp = None  # silhouette mode: ignore source colors, just use mono_color
+
+    out = Image.new("RGB", (side, side), bg)
+    op = out.load()
+    ap = alpha.load()
+    for y in range(side):
+        for x in range(side):
+            if ap[x, y] < alpha_threshold:
+                continue
+            op[x, y] = mono_color if qp is None else qp[x, y]
+
+    if seam:
+        # Paint BG pixels that touch any shape pixel BLACK → 1px outline outside the
+        # shape, so the original silhouette is preserved (no erosion of small details).
+        ref = out.copy()
+        rp = ref.load()
+        for y in range(side):
+            for x in range(side):
+                if rp[x, y] != bg:
+                    continue
+                for nx, ny in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)):
+                    if 0 <= nx < side and 0 <= ny < side and rp[nx, ny] != bg:
+                        op[x, y] = P_BLACK
+                        break
+    return out
 
 def lerp(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
@@ -294,58 +379,23 @@ def draw_gemini(im):
     return im
 
 # ---------- LED ----------
+# Source: tools/led_56.png — palette-quantized via image_to_icon().
+# Assumes SUPERSAMPLE=1 (see note on draw_claudemeter).
 def draw_led(im):
-    d = ImageDraw.Draw(im)
-    s = im.size[0]
-    cx = cy = s // 2
-    r_outer = round(s*23/56)
-    r_core  = round(s*6/56)
-
-    # outer black border ring
-    d.ellipse((cx - r_outer - 1, cy - r_outer - 1, cx + r_outer + 1, cy + r_outer + 1),
-              fill=P_BLACK)
-    # quadrants
-    bbox = (cx - r_outer, cy - r_outer, cx + r_outer, cy + r_outer)
-    d.pieslice(bbox, start=180, end=270, fill=P_RED)
-    d.pieslice(bbox, start=270, end=360, fill=P_ORANGE)
-    d.pieslice(bbox, start=0,   end=90,  fill=P_CYAN)
-    d.pieslice(bbox, start=90,  end=180, fill=P_MAGENTA)
-    # cross-hair separators
-    d.line((cx, cy - r_outer, cx, cy + r_outer), fill=P_BLACK, width=1)
-    d.line((cx - r_outer, cy, cx + r_outer, cy), fill=P_BLACK, width=1)
-    # white hot core
-    d.ellipse((cx - r_core, cy - r_core, cx + r_core, cy + r_core), fill=P_WHITE)
+    side = im.size[0]
+    src = os.path.join(HERE, "led_56.png")
+    converted = image_to_icon(src, side, seam=True)
+    im.paste(converted)
     return im
 
 # ---------- Files ----------
+# Source: tools/filemanager.png — palette-quantized via image_to_icon().
+# Assumes SUPERSAMPLE=1 (see note on draw_claudemeter).
 def draw_files(im):
-    d = ImageDraw.Draw(im)
-    s = im.size[0]
-    body_top   = round(s*16/56)
-    body_bot   = round(s*47/56)
-    body_left  = round(s*7/56)
-    body_right = round(s*49/56)
-    tab_left   = body_left
-    tab_right  = round(s*26/56)
-    tab_top    = round(s*10/56)
-    tab_bottom = body_top + 2
-
-    # back tab — tan
-    d.rounded_rectangle((tab_left, tab_top, tab_right, tab_bottom + 4),
-                        radius=round(s*1/56), fill=P_TAN, outline=P_BLACK, width=1)
-
-    # white paper sheet peeking
-    paper_x0 = body_left + round(s*3/56)
-    paper_x1 = body_right - round(s*3/56)
-    paper_y0 = body_top - round(s*2/56)
-    paper_y1 = body_top + round(s*6/56)
-    d.rounded_rectangle((paper_x0, paper_y0, paper_x1, paper_y1),
-                        radius=1, fill=P_WHITE, outline=P_BLACK, width=1)
-
-    # front folder body — orange
-    fy0 = body_top + round(s*2/56)
-    d.rounded_rectangle((body_left, fy0, body_right, body_bot),
-                        radius=round(s*2/56), fill=P_ORANGE, outline=P_BLACK, width=1)
+    side = im.size[0]
+    src = os.path.join(HERE, "filemanager.png")
+    converted = image_to_icon(src, side, seam=True)
+    im.paste(converted)
     return im
 
 # ---------- Torch (flashlight) ----------
@@ -710,28 +760,14 @@ def draw_scales(im):
     d.rectangle((body_x1 - 5, body_y1 - 2, body_x1 - 2, body_y1), fill=P_DGRAY)
     return im
 
-# ---------- Claude Meter (usage gauge) ----------
+# ---------- Claude Meter (Claude AI starburst logo) ----------
+# Source: tools/Claude_AI_logo.png — silhouette using P_ORANGE for every opaque
+# source pixel so the icon reads as a single, fully-filled orange starburst.
 def draw_claudemeter(im):
-    d = ImageDraw.Draw(im)
-    s = im.size[0]
-    # Body — black rounded panel
-    bx0 = round(s * 4 / 56);  by0 = round(s * 6 / 56)
-    bx1 = round(s * 52 / 56); by1 = round(s * 50 / 56)
-    d.rounded_rectangle((bx0, by0, bx1, by1),
-                        radius=round(s * 3 / 56), fill=P_BLACK, outline=P_BLACK, width=1)
-    # Two horizontal usage bars: 5H (lime, ~50%) and 7D (orange, ~75%)
-    bar_left  = bx0 + round(s * 4 / 56)
-    bar_right = bx1 - round(s * 4 / 56)
-    bar_w     = bar_right - bar_left
-    bar_h     = round(s * 7 / 56)
-    bar1_y    = by0 + round(s * 7 / 56)
-    bar2_y    = bar1_y + bar_h + round(s * 6 / 56)
-    # Bar 1 — 5H @ ~50%
-    d.rectangle((bar_left, bar1_y, bar_right, bar1_y + bar_h), fill=P_DGRAY)
-    d.rectangle((bar_left, bar1_y, bar_left + bar_w // 2, bar1_y + bar_h), fill=P_LIME)
-    # Bar 2 — 7D @ ~75%
-    d.rectangle((bar_left, bar2_y, bar_right, bar2_y + bar_h), fill=P_DGRAY)
-    d.rectangle((bar_left, bar2_y, bar_left + (bar_w * 3) // 4, bar2_y + bar_h), fill=P_ORANGE)
+    side = im.size[0]
+    src = os.path.join(HERE, "Claude_AI_logo.png")
+    converted = image_to_icon(src, side, seam=False, mono_color=P_ORANGE)
+    im.paste(converted)
     return im
 
 ICONS = [
@@ -760,7 +796,60 @@ def main():
                     help="only generate this icon key (repeatable)")
     ap.add_argument("--dry-run", action="store_true",
                     help="print what would be written without touching files")
+    # ---- image → icon conversion (alternative to the curated draw_* functions) ----
+    ap.add_argument("--from-image", metavar="PATH", default=None,
+                    help="convert this image file (PNG/JPG/...) into big+small icons "
+                         "quantized to the launcher palette. Requires --name, --out-dir, "
+                         "--prefix, --var.")
+    ap.add_argument("--name", metavar="KEY", default=None,
+                    help="logical icon name for --from-image (used in header comment)")
+    ap.add_argument("--out-dir", metavar="DIR", default=None,
+                    help="output directory for --from-image headers. Relative paths are "
+                         "resolved against main/apps/ (e.g. app_foo/assets).")
+    ap.add_argument("--prefix", metavar="NAME", default=None,
+                    help="filename prefix for --from-image headers (writes <prefix>_big.h "
+                         "and <prefix>_small.h)")
+    ap.add_argument("--var", metavar="NAME", default=None,
+                    help="C array variable name prefix for --from-image (writes "
+                         "<var>_big[] and <var>_small[])")
+    ap.add_argument("--no-seam", action="store_true",
+                    help="disable the 1px black outline seam around the converted shape")
+    ap.add_argument("--preview-image", metavar="PATH", default=None,
+                    help="with --from-image, also write a 4x-scaled PNG preview")
     args = ap.parse_args()
+
+    if args.from_image:
+        missing = [n for n, v in
+                   (("--name", args.name), ("--out-dir", args.out_dir),
+                    ("--prefix", args.prefix), ("--var", args.var))
+                   if not v]
+        if missing:
+            raise SystemExit(f"--from-image requires: {', '.join(missing)}")
+        out_dir = args.out_dir
+        if not os.path.isabs(out_dir):
+            out_dir = os.path.join(ROOT, out_dir)
+        if not args.dry_run:
+            os.makedirs(out_dir, exist_ok=True)
+        preview_big = None
+        for is_big in (True, False):
+            side = 56 if is_big else 40
+            suffix = "big" if is_big else "small"
+            im = image_to_icon(args.from_image, side, seam=not args.no_seam)
+            if is_big:
+                preview_big = im
+            data = to_565(im)
+            path = os.path.join(out_dir, f"{args.prefix}_{suffix}.h")
+            if args.dry_run:
+                print(f"would write {path}")
+            else:
+                emit_header(path, f"{args.var}_{suffix}", side, data,
+                            f"{args.name} icon (palette-quantized from "
+                            f"{os.path.basename(args.from_image)}). R5G6B5.")
+                print(f"wrote {path}")
+        if args.preview_image and preview_big is not None:
+            preview_big.resize((56*4, 56*4), Image.NEAREST).save(args.preview_image)
+            print(f"preview: {args.preview_image}")
+        return
 
     todo = [t for t in ICONS if not args.only or t[0] in args.only]
     if args.only:

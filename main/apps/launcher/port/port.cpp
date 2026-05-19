@@ -333,13 +333,13 @@ void Launcher::_set_config()
 {
           
           _data.wifi_ssid = _data.hal->getWifiSSID();
-          _data.wifi_password = _data.hal->getWifiPassword(); 
+          _data.wifi_password = _data.hal->getWifiPassword();
 
         if (!_data.hal->isWifiConnected() && _data._retry_count < 3) {
             _data._retry_count ++;
             spdlog::info("Start wifi connection ... ");
             spdlog::info(_data._retry_count);
-           
+
             WiFi.begin(_data.hal->getWifiSSID(), _data.hal->getWifiPassword());
             WiFi.waitForConnectResult(20 * 1000);
             // @todo logic to stop connecting after N number of fail attempts 
