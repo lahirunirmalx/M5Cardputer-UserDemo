@@ -24,3 +24,4 @@
 #include "app_files/app_files.h"
 #include "app_calculator/app_calculator.h"
 #include "app_resistor/app_resistor.h"
+#include "app_torch/app_torch.h"
