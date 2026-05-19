@@ -140,18 +140,97 @@ For each app you bring over from dev-main:
 
 ## What's been ported so far
 
+Branch infrastructure:
 - `50f55b8` chore: gitignore NVS credentials, build_alpha.zip, and `__pycache__`
 - `88fdfac` docs: this porting checklist
-- `0f00e54` port: AppTextEditor (Notepad)
+
+Apps (one commit per app, in user-requested order):
+- `0f00e54` port: AppTextEditor (Notepad) — SD-backed line editor
+- `e156e0e` port: AppFilesManager — SD browser with copy/move/rename/delete
+- `4ed5e4d` port: AppCalculator + shared `seven_seg` utility
+- `217d450` port: AppResistor — 4-band color-code calculator
+- `2110942` port: AppTorch — full-screen flashlight, brightness/color cycle
+- `671994e` port: AppSysinfo — heap, WiFi, IP, RSSI, battery, CPU
+- `b04d7db` port: AppSnake — 25×10 grid game
+- `fd882e6` port: AppTicTacToe — vs simple AI or 2-player
+
+Pixel layouts, key bindings, and behavior preserved; HAL/keyboard/audio
+adapted to CardputerADV idioms. All eight ports compile against
+`<mooncake.h>`/`<hal.h>`/`<apps/utils/*>` and use the signal-driven
+`Keyboard::onKeyEvent` model. **Not built locally** on this host (IDF
+Python venv is missing pinned packages); the user is expected to build
+on their own host where the IDF env is configured. Each commit is
+self-contained — revert any single port without affecting the rest.
 
 ## Deliberately skipped on this branch
 
-- **AppLed** (dev-main: NeoLED RGB control) — depends on the M5Cardputer-only
-  WS2812 NeoPixel + the `neoled` submodule driving it via `driver/rmt.h`.
-  Cardputer-ADV has no equivalent user-controllable RGB LED, so there is
-  nothing to drive. Skipping rather than committing a stub. If a future
-  CardputerADV revision adds an LED, revisit by writing a new app against
-  whatever HAL primitive exposes it (this would be a new app, not a port).
+These dev-main apps were left out of the port because they depend on
+peripherals, frameworks, or low-level drivers that are not available
+on Cardputer-ADV's pure-IDF stack. Each would be a rewrite rather than
+a port, so they are documented here for follow-up rather than turned
+into half-broken stubs.
+
+- **AppLed** — needs the M5Cardputer WS2812 NeoPixel + the `neoled`
+  submodule driving it via `driver/rmt.h`. Cardputer-ADV has no
+  equivalent user-controllable RGB LED. To revive: design a new app
+  against whatever LED HAL primitive a future Cardputer-ADV revision
+  exposes.
+
+- **AppMp3** — pulls in the Arduino `ESP8266Audio` library
+  (`<AudioOutput.h>`, `<AudioGeneratorMP3.h>`, `<AudioFileSourceBuffer.h>`)
+  for MP3 decoding + M5Speaker output. Cardputer-ADV is pure ESP-IDF,
+  no Arduino-as-component. To revive: replace the audio decoder with
+  an IDF-native path (Espressif's audio component or a hand-rolled
+  libmad / minimp3 integration), then re-implement the playback task
+  on top of `M5.Speaker`.
+
+- **AppGemini** — uses Arduino `<WiFi.h>` / `<HTTPClient.h>` /
+  `<WiFiClientSecure.h>` to hit the Google Gemini REST endpoint over
+  HTTPS. Cardputer-ADV has no Arduino layer. To revive: rewrite the
+  HTTP layer on top of `esp_http_client` / `esp_tls`, keep the
+  request/response parsing logic, and store the API key under
+  `Settings("gemini")` to match the CardputerADV NVS convention.
+
+- **AppTvbgone** — uses the **legacy** RMT driver
+  (`driver/rmt.h`, `rmt_item32_t`, `rmt_set_tx_carrier`) to emit
+  arbitrary-timed IR pulse trains at code-specific carrier frequencies
+  (36/38/40/56 kHz), and the dev-main version is hard-wired to
+  `GPIO 44`. Cardputer-ADV has the **new** RMT driver
+  (`driver/rmt_tx.h`, custom encoders) exposed via
+  `main/hal/utils/ir_nec/`, which currently only emits NEC frames. To
+  revive: write a generic "raw pulse-train" encoder against the new
+  RMT API, refactor `world_ir_codes.h` to emit per-code carrier setup,
+  and route through `GetHAL().irSend()` (or a sibling) with the
+  Cardputer-ADV IR GPIO.
+
+- **AppBlePair** — uses Arduino `<BLEDevice.h>` / `<BLEAdvertising.h>`
+  to broadcast manufacturer-specific BLE adverts with rotating MAC
+  addresses. Cardputer-ADV's BLE layer lives in
+  `main/hal/utils/ble_hid_device/` and targets the HID profile only;
+  the raw advertising primitives the dev-main app needs are not
+  exposed and the stack mixes Bluedroid + NimBLE conditionals that
+  diverge from dev-main's Arduino-BLE setup. To revive: implement
+  against `esp_ble_gap_config_adv_data_raw()` / `esp_ble_gap_start_advertising()`
+  on Bluedroid, or the NimBLE GAP equivalents, and re-port the
+  payload tables verbatim.
+
+- **AppClaudeMeter** — combination of two skip reasons above: Arduino
+  `<WiFi.h>` + `<HTTPClient.h>` for the `/usage` API poll, plus
+  `#include "neoled.h"` for the per-refresh LED blink. To revive:
+  same as AppGemini for the HTTP rewrite, drop or replace the LED
+  blink, and store the bearer token + base URL under `Settings("claude")`
+  to match the CardputerADV NVS convention.
+
+## Tally
+
+User-requested order: TextEditor, Led, FilesManager, Mp3, Calculator,
+Resistor, Gemini, Torch, Sysinfo, Snake, TicTacToe, Tvbgone, BlePair,
+ClaudeMeter — 14 apps.
+
+- Ported: 8 (TextEditor, FilesManager, Calculator, Resistor, Torch,
+  Sysinfo, Snake, TicTacToe).
+- Skipped: 6 (Led, Mp3, Gemini, Tvbgone, BlePair, ClaudeMeter) — see
+  rationale above.
 
 ---
 
