@@ -1,0 +1,50 @@
+key,type,encoding,value
+# -----------------------------------------------------------------------------
+# CardputerADV NVS provisioning template.
+#
+# This file is committed; the real-secrets copy is NOT. Workflow:
+#
+#     cp tools/nvs_keys.csv.example tools/nvs_keys.csv
+#     # edit tools/nvs_keys.csv with your real values
+#     tools/flash_nvs.sh /dev/ttyACM0           # generate + flash NVS partition
+#
+# `tools/nvs_keys.csv` and the generated `tools/nvs.bin` are both gitignored
+# (.gitignore lines for both already in place — do not remove them).
+#
+# Partition layout: partitions.csv puts `nvs` at offset 0x9000, size 0x4000
+# (16 KiB). Keep this CSV in sync with that — `flash_nvs.sh` will fail if
+# the generated image exceeds 0x4000.
+#
+# Generator (run by flash_nvs.sh, shown here so a manual run is possible):
+#
+#     python3 $IDF_PATH/components/nvs_flash/nvs_partition_generator/nvs_partition_gen.py \
+#         generate tools/nvs_keys.csv tools/nvs.bin 0x4000
+#     esptool.py -p /dev/ttyACM0 write_flash 0x9000 tools/nvs.bin
+#
+# Lines starting with `#` are ignored by the generator. Blank lines are too.
+# -----------------------------------------------------------------------------
+
+# WiFi credentials.
+#   namespace: "cardputer"  — used by Settings() in main/hal/hal.cpp:122
+#   keys:      wifi_ssid / wifi_password
+#   readers:   AppSetWiFi (main/apps/app_set_wifi/app_set_wifi.cpp)
+#              and the WiFi auto-connect path in the launcher.
+cardputer,namespace,,
+wifi_ssid,data,string,YourWiFiSSID
+wifi_password,data,string,YourWiFiPassword
+
+# Claude usage dashboard credentials.
+#   namespace: "claude"  — opened directly via nvs_open() by AppClaudeMeter
+#   keys:      base (URL, no trailing slash) and bearer (token)
+#   readers:   main/apps/app_claudemeter/app_claudemeter.cpp
+#
+# `base` is the root of your usage / stats / token endpoint server. The app
+# appends "/usage", "/stats", and "/token" to it. Both http:// and https://
+# are supported (HTTPS uses the bundled CA root store).
+#
+# If you do not run a usage server, leave these as the placeholders. The
+# Claude Meter screen will show "no cfg" and stay idle; it does not retry
+# until the values are non-empty.
+claude,namespace,,
+base,data,string,http://192.168.1.100:7878
+bearer,data,string,REPLACE_WITH_YOUR_BEARER_TOKEN
