@@ -294,15 +294,15 @@ namespace lgfx
   {
     if (0 < w && 0 < h)
     {
-      uint_fast16_t xs = x, xe = x + w - 1;
-      uint_fast16_t ys = y, ye = y + h - 1;
-      _update_transferred_rect(xs, ys, xe, ye);
+      _range_mod.left   = std::min<int_fast16_t>(_range_mod.left  , x        );
+      _range_mod.right  = std::max<int_fast16_t>(_range_mod.right , x + w - 1);
+      _range_mod.top    = std::min<int_fast16_t>(_range_mod.top   , y        );
+      _range_mod.bottom = std::max<int_fast16_t>(_range_mod.bottom, y + h - 1);
     }
     if (_range_mod.empty()) { return; }
 
-    // X-Axis 4-byte alignment is required due to the discovery of a product that causes a defect.
-    uint_fast8_t xs = _range_mod.left & ~3;
-    uint_fast8_t xe = _range_mod.right | 3;
+    uint_fast8_t xs = _range_mod.left;
+    uint_fast8_t xe = _range_mod.right;
     uint_fast8_t ys = _range_mod.top    >> 3;
     uint_fast8_t ye = _range_mod.bottom >> 3;
     int retry = 3;
@@ -339,9 +339,10 @@ namespace lgfx
   {
     if (0 < w && 0 < h)
     {
-      uint_fast16_t xs = x, xe = x + w - 1;
-      uint_fast16_t ys = y, ye = y + h - 1;
-      _update_transferred_rect(xs, ys, xe, ye);
+      _range_mod.left   = std::min<int_fast16_t>(_range_mod.left  , x        );
+      _range_mod.right  = std::max<int_fast16_t>(_range_mod.right , x + w - 1);
+      _range_mod.top    = std::min<int_fast16_t>(_range_mod.top   , y        );
+      _range_mod.bottom = std::max<int_fast16_t>(_range_mod.bottom, y + h - 1);
     }
     if (_range_mod.empty()) { return; }
 
@@ -384,9 +385,10 @@ namespace lgfx
   {
     if (0 < w && 0 < h)
     {
-      uint_fast16_t xs = x, xe = x + w - 1;
-      uint_fast16_t ys = y, ye = y + h - 1;
-      _update_transferred_rect(xs, ys, xe, ye);
+      _range_mod.left   = std::min<int_fast16_t>(_range_mod.left  , x        );
+      _range_mod.right  = std::max<int_fast16_t>(_range_mod.right , x + w - 1);
+      _range_mod.top    = std::min<int_fast16_t>(_range_mod.top   , y        );
+      _range_mod.bottom = std::max<int_fast16_t>(_range_mod.bottom, y + h - 1);
     }
     if (_range_mod.empty()) { return; }
 

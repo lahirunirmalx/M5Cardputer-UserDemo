@@ -84,9 +84,8 @@ namespace lgfx
     {
       write_command(_cmd_nop); // NOP command
     }
-    _bus->wait();
-    cs_control(true);
     _bus->endTransaction();
+    cs_control(true);
   }
 
   void Panel_LCD::setInvert(bool invert)

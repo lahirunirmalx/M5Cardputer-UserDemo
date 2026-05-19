@@ -351,12 +351,6 @@ namespace lgfx
   {
     ChipID chip_id = { 0,0,0 };
 
-    lgfx::i2c::i2c_temporary_switcher_t i2c_switch {
-      HDMI_Trans_config.i2c_port,
-      HDMI_Trans_config.pin_sda,
-      HDMI_Trans_config.pin_scl
-    };
-
     if (this->writeRegister(0xff, 0x80)
      && this->writeRegister(0xee, 0x01))
     {
@@ -364,37 +358,18 @@ namespace lgfx
       chip_id.id[1] = this->readRegister(0x01);
       chip_id.id[2] = this->readRegister(0x02);
     }
-    i2c_switch.restore();
-
     return chip_id;
   }
 
   void Panel_M5HDMI::HDMI_Trans::reset(void)
   {
-    lgfx::i2c::i2c_temporary_switcher_t i2c_switch {
-      HDMI_Trans_config.i2c_port,
-      HDMI_Trans_config.pin_sda,
-      HDMI_Trans_config.pin_scl
-    };
     static constexpr const uint8_t data[] = { 0xff, 0x81, 0x30, 0x00, 0x02, 0x66, 0x0a, 0x06, 0x15, 0x06, 0x4e, 0xa8, 0xff, 0x80, 0xee, 0x01, 0x11, 0x00, 0x13, 0xf1, 0x13, 0xf9, 0x0a, 0x80, 0xff, 0x82, 0x1b, 0x77, 0x1c, 0xec, 0x45, 0x00, 0x4f, 0x40, 0x50, 0x00, 0x47, 0x07 };
     this->writeRegisterSet(data, sizeof(data));
-    i2c_switch.restore();
-  }
-
-  Panel_M5HDMI::HDMI_Trans::HDMI_Trans(const lgfx::Bus_I2C::config_t& i2c_config)
-  {
-    HDMI_Trans_config = i2c_config;
   }
 
   bool Panel_M5HDMI::HDMI_Trans::init(void)
   {
     auto id = this->readChipID();
-    lgfx::i2c::i2c_temporary_switcher_t i2c_switch {
-      HDMI_Trans_config.i2c_port,
-      HDMI_Trans_config.pin_sda,
-      HDMI_Trans_config.pin_scl
-    };
-
     {
 // 96kHz audio setting.
 //    static constexpr const uint8_t data_1[] = { 0xff, 0x82, 0xD6, 0x8E, 0xD7, 0x04, 0xff, 0x84, 0x06, 0x08, 0x07, 0x10, 0x09, 0x00, 0x0F, 0xAB, 0x34, 0xD5, 0x35, 0x00, 0x36, 0x30, 0x37, 0x00, 0x3C, 0x21,
@@ -418,7 +393,6 @@ namespace lgfx
       this->writeRegisterSet(data_u3, sizeof(data_u3));
     }
 
-    bool result = false;
     for (int i = 0; i < 8; ++i)
     {
       static constexpr const uint8_t data_pll[] = { 0xff, 0x80, 0x16, 0xf1, 0x18, 0xdc, 0x18, 0xfc, 0x16, 0xf3, 0x16, 0xe3, 0x16, 0xf3, 0xff, 0x82 };
@@ -430,26 +404,15 @@ namespace lgfx
       {
         static constexpr const uint8_t data[] = { 0xb9, 0x00, 0xff, 0x84, 0x43, 0x31, 0x44, 0x10, 0x45, 0x2a, 0x47, 0x04, 0x10, 0x2c, 0x12, 0x64, 0x3d, 0x0a, 0xff, 0x80, 0x11, 0x00, 0x13, 0xf1, 0x13, 0xf9, 0xff, 0x81, 0x31, 0x44, 0x32, 0x4a, 0x33, 0x0b, 0x34, 0x00, 0x35, 0x00, 0x36, 0x00, 0x37, 0x44, 0x3f, 0x0f, 0x40, 0xa0, 0x41, 0xa0, 0x42, 0xa0, 0x43, 0xa0, 0x44, 0xa0, 0x30, 0xea };
         this->writeRegisterSet(data, sizeof(data));
-        result = true;
-        break;
+        return true;
       }
     }
-    i2c_switch.restore();
-    if (!result) {
-      ESP_LOGE(TAG, "failed to initialize the HDMI transmitter.");
-      return false;
-    }
-    return true;
+    ESP_LOGE(TAG, "failed to initialize the HDMI transmitter.");
+    return false;
   }
 
   size_t Panel_M5HDMI::HDMI_Trans::readEDID(uint8_t* EDID, size_t len)
   {
-    lgfx::i2c::i2c_temporary_switcher_t i2c_switch {
-      HDMI_Trans_config.i2c_port,
-      HDMI_Trans_config.pin_sda,
-      HDMI_Trans_config.pin_scl
-    };
-
     static constexpr const uint8_t data[] = { 0xff, 0x85 ,0x03, 0xc9 ,0x04, 0xA0 ,0x06, 0x20 ,0x14, 0x7f };
     this->writeRegisterSet(data, sizeof(data));
 
@@ -477,7 +440,6 @@ namespace lgfx
     }
     static constexpr const uint8_t data3[] = { 0x03, 0xc2 ,0x07, 0x1f };
     this->writeRegisterSet(data3, sizeof(data3));
-    i2c_switch.restore();
     return result;
   }
 
@@ -487,11 +449,9 @@ namespace lgfx
   {
     startWrite();
     _bus->writeData(CMD_NOP, 32);
-    _bus->wait();
-    cs_control(true);
+    endWrite();
     _bus->writeData(CMD_NOP, 32);
-    _bus->wait();
-    cs_control(false);
+    startWrite();
     _bus->writeData(CMD_READ_ID, 8); // READ_ID
     _bus->beginRead();
     uint32_t retry = 16;
@@ -506,6 +466,8 @@ namespace lgfx
   bool Panel_M5HDMI::init(bool use_reset)
   {
     ESP_LOGI(TAG, "i2c port:%d sda:%d scl:%d", _HDMI_Trans_config.i2c_port, _HDMI_Trans_config.pin_sda, _HDMI_Trans_config.pin_scl);
+
+    lgfx::i2c::init(_HDMI_Trans_config.i2c_port, _HDMI_Trans_config.pin_sda, _HDMI_Trans_config.pin_scl);
 
     HDMI_Trans driver(_HDMI_Trans_config);
 
@@ -875,7 +837,7 @@ namespace lgfx
         scale_w = output_width  / logical_width;
       }
       uint32_t w = output_width / scale_w;
-      while (scale_w > 1 && (scale_w > SCALE_MAX || w * scale_w != output_width || logical_width * scale_w > output_width))
+      while (scale_w > SCALE_MAX || w * scale_w != output_width || logical_width * scale_w > output_width)
       {
         w = output_width / --scale_w;
       }
@@ -1365,6 +1327,38 @@ namespace lgfx
 
   void Panel_M5HDMI::copyRect(uint_fast16_t dst_x, uint_fast16_t dst_y, uint_fast16_t w, uint_fast16_t h, uint_fast16_t src_x, uint_fast16_t src_y)
   {
+    return;
+/*
+2023/12/27 : copyRect機能を一時的に使用不能にする。 ( scroll 機能も使用不能となります )
+
+経緯：
+ModuleDisplay / AtomDisplayに搭載している GOWIN の FPGA のロットが新しくなったことに伴って、性能上の問題が生じた。
+
+現在こちらで把握しできているFPGAロットナンバーは以下の通り。
+    2103C 問題なく動作する最初期のロット。
+    2305C 性能問題が生じるロット。
+    2313C 性能問題が生じるロット。
+
+従来のFPGAデザインをそのまま使用すると正常に動作しないため、FPGAのデザイン改修作業を @ciniml 氏が進めていた。
+新しいロットのFPGAでは動作クロックやリソース使用率を下げることで安定動作する傾向にあることが判明しているが、
+正確な仕様の変化が不明なことや、タイミング制約を満たしていても動作しないケースがあり、対応作業が困難な状況にある。
+現時点では、copyRect機能が省かれているが、基本機能は動作する状態のFPGAデザインが出来ている。
+
+なお、当該問題が生じる新しいロットを搭載した製品は市場に流通していないという認識であったが、
+2023/12/25 ユーザーからの報告により、問題が生じるロットの製品が市場に流通していることが判明した。
+このため、暫定的に現時点のもので更新を行うこととした。
+
+まことに遺憾ながら、この更新により、ModuleDisplay / AtomDisplay は従来のロットであっても性能が低下する。
+ ・ FPGA内部動作クロックを下げたことにより全体的に描画性能が低下する。
+ ・ copyRect機能が使用できなくなる。
+
+
+今後の対応方針としては、FPGAリソース使用率を根本的に下げる必要があるため、
+ 1ピクセル 3Byte RGB888 のフルカラー表現を諦め、
+ 1ピクセル 2Byte RGB565 の65536色に限定したデザインに刷新することを検討している。
+*/
+
+#if 0
     uint_fast8_t r = _internal_rotation;
     if (r)
     {
@@ -1388,6 +1382,7 @@ namespace lgfx
     startWrite();
     _copy_rect(dst_x + (dst_y << 16), src_x + (src_y << 16), w + (h << 16));
     endWrite();
+#endif
   }
 
   void Panel_M5HDMI::setVideoTiming(const video_timing_t* param)

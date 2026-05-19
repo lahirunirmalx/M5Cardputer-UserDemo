@@ -38,7 +38,6 @@ namespace lgfx
     bus_parallel16,
     bus_stream,
     bus_image_push,
-    bus_dsi,
   };
 
   struct IBus

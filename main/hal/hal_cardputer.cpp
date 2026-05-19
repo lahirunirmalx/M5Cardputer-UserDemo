@@ -11,7 +11,6 @@
 #include "hal_cardputer.h"
 #include "display/hal_display.hpp"
 #include <mooncake.h>
-#include <M5Unified.hpp>
 #include "../apps/utils/common_define.h"
 #include "bat/adc_read.h"
 
@@ -22,27 +21,14 @@ void HalCardputer::_display_init()
     spdlog::info("init display");
 
     // Display
-    //
-    // On M5GFX >= 0.2.x, `M5GFX::init()` alone does NOT bind a Panel — board
-    // autodetect runs but no panel instance is attached, so the first call to
-    // LGFXBase::width() inside createSprite() panics with LoadProhibited on a
-    // null _panel. `M5.begin()` does the full board-detect + panel wiring,
-    // so we go through M5Unified for setup and then point our `_display`
-    // pointer at the now-initialised `M5.Display`.
-    //
-    // internal_mic/internal_spk are disabled because this HAL manages its
-    // own m5::Mic_Class / m5::Speaker_Class instances (see _mic_init /
-    // _speaker_init below); letting M5.begin() also init them would cause
-    // double-init on I2S0.
-    auto cfg = M5.config();
-    cfg.internal_mic = false;
-    cfg.internal_spk = false;
-    cfg.internal_imu = false;  // cardputer has no IMU
-    M5.begin(cfg);
-    _display = &M5.Display;
+ 
+    _display = new M5GFX;
+    _display->init();
+ 
 
     // Canvas
     _canvas = new LGFX_Sprite(_display);
+ 
     _canvas->createSprite(206, 109);
 
     _canvas_keyboard_bar = new LGFX_Sprite(_display);

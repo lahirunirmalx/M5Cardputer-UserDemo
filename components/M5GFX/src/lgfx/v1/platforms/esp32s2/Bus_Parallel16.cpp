@@ -27,21 +27,6 @@ Contributors:
 #include <hal/gpio_ll.h>
 #include <esp_log.h>
 
-#if !defined (DPORT_PERIP_CLK_EN_REG) && defined (DPORT_PERIP_CLK_EN0_REG)
- #define DPORT_PERIP_CLK_EN_REG DPORT_PERIP_CLK_EN0_REG
-#endif
-#if !defined (DPORT_PERIP_RST_EN_REG) && defined (DPORT_PERIP_RST_EN0_REG)
- #define DPORT_PERIP_RST_EN_REG DPORT_PERIP_RST_EN0_REG
-#endif
-
-#if defined (ESP_IDF_VERSION_VAL) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
- #define LGFX_GPIO_PAD_SELECT(pin)               rom_gpio_pad_select_gpio((gpio_num_t)(pin))
- #define LGFX_GPIO_MATRIX_OUT(pin, sig, inv, oen_inv) rom_gpio_matrix_out((gpio_num_t)(pin), (sig), (inv), (oen_inv))
-#else
- #define LGFX_GPIO_PAD_SELECT(pin)               gpio_pad_select_gpio((gpio_num_t)(pin))
- #define LGFX_GPIO_MATRIX_OUT(pin, sig, inv, oen_inv) gpio_matrix_out((gpio_num_t)(pin), (sig), (inv), (oen_inv))
-#endif
-
 namespace lgfx
 {
  inline namespace v1
@@ -102,14 +87,14 @@ namespace lgfx
     {
       int32_t pin = _cfg.pin_ctrl[i];
       if (pin < 0) { continue; }
-      LGFX_GPIO_PAD_SELECT(pin);
+      gpio_pad_select_gpio(pin);
       gpio_hi(pin);
       gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
     }
 
     auto idx_base = I2S0O_DATA_OUT8_IDX;
 
-    LGFX_GPIO_MATRIX_OUT(_cfg.pin_rs , I2S0O_DATA_OUT0_IDX, 0, 0);
+    gpio_matrix_out(_cfg.pin_rs , I2S0O_DATA_OUT0_IDX, 0, 0);
 
     _direct_dc = false;
 
@@ -129,7 +114,7 @@ namespace lgfx
       dport_rst = DPORT_I2S1_RST;
     }
 #endif
-    LGFX_GPIO_MATRIX_OUT(_cfg.pin_wr, idx_base, 1, 0); // WR (Write-strobe in 8080 mode, Active-low)
+    gpio_matrix_out(_cfg.pin_wr, idx_base, 1, 0); // WR (Write-strobe in 8080 mode, Active-low)
 
     DPORT_SET_PERI_REG_MASK(DPORT_PERIP_CLK_EN_REG, dport_clk_en);
     DPORT_CLEAR_PERI_REG_MASK(DPORT_PERIP_RST_EN_REG, dport_rst);
@@ -149,11 +134,7 @@ namespace lgfx
     i2s_dev->in_link.val = 0;
     i2s_dev->out_link.val = 0;
 
-#if defined ( I2S_TX_PCM_BYPASS )
     i2s_dev->conf1.val = I2S_TX_PCM_BYPASS | I2S_TX_STOP_EN;
-#else
-    i2s_dev->conf1.val = (BIT(3)) | I2S_TX_STOP_EN;
-#endif
     i2s_dev->conf2.val = I2S_LCD_EN;
     i2s_dev->conf_chan.val = 1 << I2S_TX_CHAN_MOD_S | 1 << I2S_RX_CHAN_MOD_S;
 
@@ -178,10 +159,10 @@ namespace lgfx
       for (size_t i = 0; i < 8; ++i)
       {
         // gpio_set_direction((gpio_num_t)pins[i], GPIO_MODE_INPUT_OUTPUT);
-        LGFX_GPIO_PAD_SELECT(pins[i  ]);
-        LGFX_GPIO_PAD_SELECT(pins[i+8]);
-        LGFX_GPIO_MATRIX_OUT(pins[i  ], I2S0O_DATA_OUT8_IDX + i+8, 0, 0);
-        LGFX_GPIO_MATRIX_OUT(pins[i+8], I2S0O_DATA_OUT8_IDX + i  , 0, 0);
+        gpio_pad_select_gpio(pins[i  ]);
+        gpio_pad_select_gpio(pins[i+8]);
+        gpio_matrix_out(pins[i  ], I2S0O_DATA_OUT8_IDX + i+8, 0, 0);
+        gpio_matrix_out(pins[i+8], I2S0O_DATA_OUT8_IDX + i  , 0, 0);
       }
     }
   }
@@ -295,7 +276,7 @@ namespace lgfx
     if (_direct_dc)
     {
       _direct_dc = false;
-      LGFX_GPIO_MATRIX_OUT(_cfg.pin_rs, I2S0O_DATA_OUT0_IDX, 0, 0);
+      gpio_matrix_out(_cfg.pin_rs, I2S0O_DATA_OUT0_IDX, 0, 0);
       wait -= 16;
     }
     if (wait > 0)
@@ -551,7 +532,7 @@ namespace lgfx
         if (!_direct_dc)
         {
           _direct_dc = true;
-          LGFX_GPIO_MATRIX_OUT(_cfg.pin_rs, 0x100, 0, 0);
+          gpio_matrix_out(_cfg.pin_rs, 0x100, 0, 0);
           wait -= 16;
         }
         if (wait > 0)
@@ -576,7 +557,7 @@ namespace lgfx
     if (!_direct_dc)
     {
       _direct_dc = true;
-      LGFX_GPIO_MATRIX_OUT(_cfg.pin_rs, 0x100, 0, 0);
+      gpio_matrix_out(_cfg.pin_rs, 0x100, 0, 0);
     }
     gpio_lo(_cfg.pin_rd);
 

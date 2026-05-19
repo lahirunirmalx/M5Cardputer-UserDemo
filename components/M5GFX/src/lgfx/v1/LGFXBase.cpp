@@ -1090,12 +1090,12 @@ namespace lgfx
       float fmidy  = midy*hratio;
       float hyp0   = pixelDistance( midx, midy, 0, 0 );
 
-      auto scanline = (rgb888_t*)alloca(w * sizeof(rgb888_t));
+      rgb888_t scanline[w];
 
       startWrite();
-      for( int _y=0;_y<(int)h;_y++ ) {
+      for( int _y=0;_y<h;_y++ ) {
         // only half of the scan line needs to be calculated, the other half is mirrored
-        for( int _x=0;_x<=(int)w/2;_x++ ) {
+        for( int _x=0;_x<=w/2;_x++ ) {
           auto distance       = pixelDistance( fmidx, fmidy, _x*vratio, _y*hratio );
           scanline[_x]        = map_gradient( distance, 0, hyp0, gradient );
           scanline[(w-1)-_x]  = scanline[_x];
@@ -1117,15 +1117,15 @@ namespace lgfx
     if( !gradient.colors || gradient.count==0 ) return;
     bool is_vertical = style==VLINEAR;
     const uint32_t gradient_len = is_vertical ? h : w;
-    auto scanline = (rgb888_t*)alloca(gradient_len * sizeof(rgb888_t));
-    for(int i=0;i<(int)gradient_len;i++) { // memoize one gradient scanline
+    rgb888_t scanline[gradient_len];
+    for(int i=0;i<gradient_len;i++) { // memoize one gradient scanline
       scanline[i] = map_gradient( i, 0, gradient_len, gradient );
     }
     startWrite();
-    for( int ys=0;ys<(int)h;ys++ ) {
+    for( int ys=0;ys<h;ys++ ) {
       if( is_vertical ) { // scanline is used as an colors index
         setColor(color888(scanline[ys].r, scanline[ys].g, scanline[ys].b));
-        drawFastHLine( x, y+ys, w );
+        drawFastHLine( x, ys, w );
       } else { // scanline is used as a line buffer
         pushImage( x, y+ys, w, 1, scanline );
       }
@@ -1395,8 +1395,6 @@ namespace lgfx
                : (dst_depth == rgb332_1Byte) ? pixelcopy_t::copy_grayscale_affine<rgb332_t>
                : (dst_depth == rgb888_3Byte) ? pixelcopy_t::copy_grayscale_affine<bgr888_t>
                : (dst_depth == rgb666_3Byte) ? pixelcopy_t::copy_grayscale_affine<bgr666_t>
-               : (dst_depth == rgb565_nonswapped) ? pixelcopy_t::copy_grayscale_affine<rgb565_t>
-               : (dst_depth == grayscale_8bit) ? pixelcopy_t::copy_grayscale_affine<grayscale_t>
                : nullptr;
 
     return pc;
@@ -1440,27 +1438,6 @@ namespace lgfx
 
     startWrite();
     _panel->writeImage(x, y, dw, dh, param, use_dma);
-    endWrite();
-  }
-
-  void LGFXBase::pushAlphaImage(int32_t x, int32_t y, int32_t w, int32_t h, pixelcopy_t *param)
-  {
-    uint32_t x_mask = 7 >> (param->src_bits >> 1);
-    param->src_bitwidth = (w + x_mask) & (~x_mask);
-
-    int32_t dx=0, dw=w;
-    if (0 < _clip_l - x) { dx = _clip_l - x; dw -= dx; x = _clip_l; }
-
-    if (_adjust_width(x, dx, dw, _clip_l, _clip_r - _clip_l + 1)) return;
-    param->src_x32 = param->src_x32_add * dx;
-
-    int32_t dy=0, dh=h;
-    if (0 < _clip_t - y) { dy = _clip_t - y; dh -= dy; y = _clip_t; }
-    if (_adjust_width(y, dy, dh, _clip_t, _clip_b - _clip_t + 1)) return;
-    param->src_y = dy;
-
-    startWrite();
-    _panel->writeImageARGB(x, y, dw, dh, param);
     endWrite();
   }
 
@@ -1533,15 +1510,15 @@ namespace lgfx
     else
     if (pc_post.dst_bits > 16) {
       if (dst_depth == rgb888_3Byte) {
-        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<bgr888_t, argb8888_t>;
+        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<bgr888_t>;
       } else {
-        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<bgr666_t, argb8888_t>;
+        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<bgr666_t>;
       }
     } else {
       if (dst_depth == rgb565_2Byte) {
-        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<swap565_t, argb8888_t>;
+        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<swap565_t>;
       } else { // src_depth == rgb332_1Byte:
-        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<rgb332_t, argb8888_t>;
+        pc_post.fp_copy = pixelcopy_t::blend_rgb_fast<rgb332_t>;
       }
     }
     push_image_affine_aa(matrix, pc, &pc_post);
@@ -1828,9 +1805,7 @@ namespace lgfx
     else               { if (dst_y < 0) { h += dst_y; src_y -= dst_y; dst_y = 0; } if (h > hei - src_y)  h = hei - src_y; }
     if (h < 1) return;
 
-    startWrite();
     _panel->copyRect(dst_x, dst_y, w, h, src_x, src_y);
-    endWrite();
   }
 
   void LGFXBase::read_rect(int32_t x, int32_t y, int32_t w, int32_t h, void* dst, pixelcopy_t* param)
@@ -1880,7 +1855,6 @@ namespace lgfx
     case color_depth_t::rgb666_3Byte: p.fp_copy = pixelcopy_t::compare_rgb_affine<bgr666_t>;  break;
     case color_depth_t::rgb565_2Byte: p.fp_copy = pixelcopy_t::compare_rgb_affine<swap565_t>; break;
     case color_depth_t::rgb332_1Byte: p.fp_copy = pixelcopy_t::compare_rgb_affine<rgb332_t>;  break;
-    case color_depth_t::grayscale_8bit: p.fp_copy = pixelcopy_t::compare_rgb_affine<grayscale_t>;  break;
     default: p.fp_copy = pixelcopy_t::compare_bit_affine;
       p.src_mask = (1 << p.src_bits) - 1;
       p.transp &= p.src_mask;
@@ -2056,51 +2030,50 @@ namespace lgfx
     return buf;
   }
 
-  uint32_t LGFXBase::decodeUTF8(uint8_t c)
+  uint16_t LGFXBase::decodeUTF8(uint8_t c)
   {
     // 7 bit Unicode Code Point
-    if ((c & 0x80)) {
-      // multibyte start or continue byte
-      switch (_decoderState)
-      {
-        case utf8_decode_state_t::utf8_state3:
-        case utf8_decode_state_t::utf8_state2:
-        case utf8_decode_state_t::utf8_state1:
-            _decoderState=(utf8_decode_state_t)((uint8_t)_decoderState-1);
-            _unicode_buffer |= ((c & 0x3F) << (6 * (uint8_t)_decoderState));
-            return _decoderState ? 0 : _unicode_buffer;
-
-        case utf8_decode_state_t::utf8_state0:
-        default:
-          // 11 bit Unicode Code Point
-          if ((c & 0xE0) == 0xC0)
-          {
-              _unicode_buffer = ((c & 0x1F) << (6 * 1));
-              _decoderState = utf8_decode_state_t::utf8_state1;
-              return 0;
-          }
-
-          // 16 bit Unicode Code Point
-          if ((c & 0xF0) == 0xE0)
-          {
-              _unicode_buffer = ((c & 0x0F) << (6 * 2));
-              _decoderState = utf8_decode_state_t::utf8_state2;
-              return 0;
-          }
-          // 21 bit Unicode  Code Point not supported so fall-back to extended ASCII
-          if ((c & 0xF8) == 0xF0)
-          {
-              _unicode_buffer = (c & 0x07)<<(6 * 3); // 6 bits for each of the 3 bytes
-              _decoderState = utf8_decode_state_t::utf8_state3;
-              return 0;
-          }
-          // fallback to extended ASCII
-          break;
-      }
+    if (!(c & 0x80)) {
+      _decoderState = utf8_decode_state_t::utf8_state0;
+      return c;
     }
-    // single byte ASCII
+
+    if (_decoderState == utf8_decode_state_t::utf8_state0)
+    {
+      // 11 bit Unicode Code Point
+      if ((c & 0xE0) == 0xC0)
+      {
+        _unicode_buffer = ((c & 0x1F)<<6);
+        _decoderState = utf8_decode_state_t::utf8_state1;
+        return 0;
+      }
+
+      // 16 bit Unicode Code Point
+      if ((c & 0xF0) == 0xE0)
+      {
+        _unicode_buffer = ((c & 0x0F)<<12);
+        _decoderState = utf8_decode_state_t::utf8_state2;
+        return 0;
+      }
+      // 21 bit Unicode  Code Point not supported so fall-back to extended ASCII
+      //if ((c & 0xF8) == 0xF0) return (uint16_t)c;
+    }
+    else
+    {
+      if (_decoderState == utf8_decode_state_t::utf8_state2)
+      {
+        _unicode_buffer |= ((c & 0x3F)<<6);
+        _decoderState = utf8_decode_state_t::utf8_state1;
+        return 0;
+      }
+      _unicode_buffer |= (c & 0x3F);
+      _decoderState = utf8_decode_state_t::utf8_state0;
+      return _unicode_buffer;
+    }
+
     _decoderState = utf8_decode_state_t::utf8_state0;
-    return c;
+
+    return c; // fall-back to extended ASCII
   }
 
   int32_t LGFXBase::fontHeight(const IFont* font) const
@@ -2129,32 +2102,16 @@ namespace lgfx
     int32_t right = 0;
     auto str = string;
     do {
-      uint32_t uniCode = *string;
+      uint16_t uniCode = *string;
       if (_text_style.utf8) {
         do {
           uniCode = decodeUTF8(*string);
         } while (uniCode < 0x20 && *(++string));
         if (uniCode < 0x20) break;
       }
-      if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
-      bool use_emoji = false;
-      if (uniCode > 0xFFFF) {
-        use_emoji = true;
-      } else if (!_font->updateFontMetric(&_font_metrics, uniCode) && uniCode != 0) {
-        use_emoji = true;
-      }
-      if (use_emoji) {
-        if (_emoji_draw_cb) {
-          _font_metrics.width     = _font_metrics.height;
-          _font_metrics.x_advance = _font_metrics.height;
-          _font_metrics.x_offset  = 0;
-        } else {
-          uniCode = 0;
-          _font->updateFontMetric(&_font_metrics, uniCode);
-        }
-      }
+
       //if (!_font->updateFontMetric(&_font_metrics, uniCode)) continue;
-      //_font->updateFontMetric(&_font_metrics, uniCode);
+      _font->updateFontMetric(&_font_metrics, uniCode);
       if (left == 0 && right == 0 && _font_metrics.x_offset < 0) left = right = - ((_font_metrics.x_offset * sx) >> 16);
       int32_t sxadvance = (_font_metrics.x_advance * sx) >> 16;
       right = left + std::max<int>(sxadvance, ((_font_metrics.width * sx) >> 16) + ((_font_metrics.x_offset * sx) >> 16));
@@ -2189,32 +2146,16 @@ namespace lgfx
     int32_t left = 0;
     int32_t right = 0;
     do {
-      uint32_t uniCode = *string;
+      uint16_t uniCode = *string;
       if (_text_style.utf8) {
         do {
           uniCode = decodeUTF8(*string);
         } while (uniCode < 0x20 && *(++string));
         if (uniCode < 0x20) break;
       }
-      if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
-      bool use_emoji = false;
-      if (uniCode > 0xFFFF) {
-        use_emoji = true;
-      } else if (!font->updateFontMetric(metrics, uniCode) && uniCode != 0) {
-        use_emoji = true;
-      }
-      if (use_emoji) {
-        if (_emoji_draw_cb) {
-          metrics->width     = metrics->height;
-          metrics->x_advance = metrics->height;
-          metrics->x_offset  = 0;
-        } else {
-          uniCode = 0;
-          font->updateFontMetric(metrics, uniCode);
-        }
-      }
+
       //if (!_font->updateFontMetric(&metrics, uniCode)) continue;
-      //font->updateFontMetric(metrics, uniCode);
+      font->updateFontMetric(metrics, uniCode);
       int32_t sxoffset = (metrics->x_offset * sx) >> 16;
       if (left == 0 && right == 0 && metrics->x_offset < 0) left = right = - sxoffset;
       int32_t sxadvance = (metrics->x_advance * sx) >> 16;
@@ -2269,7 +2210,7 @@ namespace lgfx
     if (string && string[0]) {
       auto tmp = string;
       do {
-        uint32_t uniCode = *tmp;
+        uint16_t uniCode = *tmp;
         if (_text_style.utf8) {
           do {
             uniCode = decodeUTF8(*tmp);
@@ -2277,26 +2218,8 @@ namespace lgfx
           if (uniCode < 0x20) break;
         }
 
-        if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
-
         {
-          bool use_emoji = false;
-          if (uniCode > 0xFFFF) {
-            use_emoji = true;
-          } else if (!font->updateFontMetric(&metrics, uniCode) && uniCode != 0) {
-            use_emoji = true;
-          }
-          if (use_emoji) {
-            if (_emoji_draw_cb) {
-              metrics.width     = metrics.height;
-              metrics.x_advance = metrics.height;
-              metrics.x_offset  = 0;
-              //printf("cwidth: %d\n", cwidth);
-            } else {
-              uniCode = 0;
-              font->updateFontMetric(&metrics, uniCode);
-            }
-          }
+          font->updateFontMetric(&metrics, uniCode);
           if (metrics.x_offset < 0)
           {
             int32_t sx = 65536 * _text_style.size_x;
@@ -2343,27 +2266,14 @@ namespace lgfx
     int32_t dummy_filled_x = 0;
     if (string && string[0]) {
       do {
-        uint32_t uniCode = *string;
+        uint16_t uniCode = *string;
         if (_text_style.utf8) {
           do {
             uniCode = decodeUTF8(*string);
           } while (uniCode < 0x20 && *++string);
           if (uniCode < 0x20) break;
         }
-        if ((uniCode >= 0xFE00) && (uniCode < 0xFE10)) continue;
-        {
-          bool drawn = false;
-          if (uniCode > 0xFFFF || (!font->updateFontMetric(&metrics, uniCode) && uniCode != 0)) {
-            if (_emoji_draw_cb) {
-              int32_t ew = _emoji_draw_cb(this, x + sumX, y, uniCode, (metrics.height * sy) >> 16);
-              if (ew > 0) { sumX += ew; drawn = true; }
-            }
-            if (!drawn) uniCode = 0;
-          }
-          if (!drawn) {
-            sumX += font->drawChar(this, x + sumX, y, uniCode, &_text_style, &metrics, dummy_filled_x);
-          }
-        }
+        sumX += font->drawChar(this, x + sumX, y, uniCode, &_text_style, &metrics, dummy_filled_x);
       } while (*(++string));
     }
     this->endWrite();
@@ -2380,31 +2290,14 @@ namespace lgfx
       _cursor_x = _filled_x;
       _cursor_y += (_font_metrics.y_advance * sy) >> 16;
     } else {
-      uint32_t uniCode = utf8;
+      uint16_t uniCode = utf8;
       if (_text_style.utf8) {
         uniCode = decodeUTF8(utf8);
-        if (uniCode < 0x20)
-            return 1;
+        if (uniCode < 0x20) return 1;
       }
-      if ((uniCode >= 0xFE00) && (uniCode < 0xFE10))
-        return 1;
-      bool use_emoji = false;
-      if (uniCode > 0xFFFF) {
-        use_emoji = true;
-      } else if (!_font->updateFontMetric(&_font_metrics, uniCode) && uniCode != 0) {
-        use_emoji = true;
-      }
-      if (use_emoji) {
-        if (_emoji_draw_cb) {
-          _font_metrics.width     = _font_metrics.height;
-          _font_metrics.x_advance = _font_metrics.height;
-          _font_metrics.x_offset  = 0;
-        } else {
-          uniCode = 0;
-          use_emoji = false;
-          _font->updateFontMetric(&_font_metrics, uniCode);
-        }
-      }
+      //if (!(fpUpdateFontSize)(this, uniCode)) return 1;
+      //if (!_font->updateFontMetric(&_font_metrics, uniCode)) return 1;
+      _font->updateFontMetric(&_font_metrics, uniCode);
 
       int32_t sx = 65536 * _text_style.size_x;
       int32_t xo = (_font_metrics.x_offset * sx) >> 16;
@@ -2452,23 +2345,11 @@ namespace lgfx
 
       if (y <= _clip_b + h)
       {
-        if (use_emoji) {
-          int32_t ew = _emoji_draw_cb(this, _cursor_x, y, uniCode, (_font_metrics.height * sy) >> 16);
-          if (ew > 0) {
-            _cursor_x += ew;
-          } else {
-            uniCode = 0;
-            _cursor_x += _font->drawChar(this, _cursor_x, y, uniCode, &_text_style, &_font_metrics, _filled_x);
-          }
-        } else {
-          _cursor_x += _font->drawChar(this, _cursor_x, y, uniCode, &_text_style, &_font_metrics, _filled_x);
-        }
+        _cursor_x += _font->drawChar(this, _cursor_x, y, uniCode, &_text_style, &_font_metrics, _filled_x);
       }
       else
       {
-        if (!use_emoji) {
-          _font->updateFontMetric(&_font_metrics, uniCode);
-        }
+        _font->updateFontMetric(&_font_metrics, uniCode);
         _cursor_x += (_font_metrics.x_advance * sx) >> 16;
       }
     }
@@ -2541,13 +2422,13 @@ namespace lgfx
   }
 
   /// load VLW font
-  bool LGFXBase::loadFont(const uint8_t* array, IFont::font_type_t font_type)
+  bool LGFXBase::loadFont(const uint8_t* array)
   {
     _font_data.set(array);
-    return load_font(&_font_data, font_type);
+    return load_font(&_font_data);
   }
 
-  bool LGFXBase::load_font_with_path(const char *path, IFont::font_type_t font_type)
+  bool LGFXBase::load_font_with_path(const char *path)
   {
     this->unloadFont();
 
@@ -2574,13 +2455,13 @@ namespace lgfx
     }
 
     if (result) {
-      result = this->load_font(this->_font_file.get(), font_type);
+      result = this->load_font(this->_font_file.get());
     }
     this->_font_file->postRead();
     return result;
   }
 
-  bool LGFXBase::load_font(lgfx::DataWrapper* data, IFont::font_type_t font_type)
+  bool LGFXBase::load_font(lgfx::DataWrapper* data)
   {
     this->unloadFont();
     bool result = false;
@@ -2598,14 +2479,8 @@ namespace lgfx
     }
     else
 #endif
-    switch (font_type)
     {
-    case IFont::font_type_t::ft_lvgl:
-      this->_runtime_font.reset(new BFFfont());
-      break;
-    default:
       this->_runtime_font.reset(new VLWfont());
-      break;
     }
 
     if (this->_runtime_font->loadFont(data)) {
@@ -2679,7 +2554,7 @@ namespace lgfx
 
 //----------------------------------------------------------------------------
 
-  void LGFXBase::qrcode(const char *string, int32_t x, int32_t y, int32_t w, uint8_t version, bool margin) {
+  void LGFXBase::qrcode(const char *string, int32_t x, int32_t y, int32_t w, uint8_t version) {
     if (w == -1) {
       w = std::min(width(), height()) * 9 / 10;
     }
@@ -2696,16 +2571,6 @@ namespace lgfx
       int_fast16_t thickness = w / qrcode.size;
       int_fast16_t lineLength = qrcode.size * thickness;
       int_fast16_t offset = (w - lineLength) >> 1;
-
-      if(margin) {
-        int_fast16_t mlen = thickness * 4; // Need 4 cell or greater margin
-        if(offset < mlen) {
-          thickness = (w - (mlen << 1)) / qrcode.size;
-          lineLength = qrcode.size * thickness;
-          offset = (w - lineLength) >> 1;
-        }
-      }
-
       startWrite();
       writeFillRect(x, y, w, offset, TFT_WHITE);
       int_fast16_t dy = y + offset;
@@ -2853,10 +2718,8 @@ namespace lgfx
   bool LGFXBase::draw_bmp(DataWrapper* data, int32_t x, int32_t y, int32_t maxWidth, int32_t maxHeight, int32_t offX, int32_t offY, float zoom_x, float zoom_y, datum_t datum)
   {
     prepareTmpTransaction(data);
-    data->preRead();
     bitmap_header_t bmpdata;
     if (!bmpdata.load_bmp_header(data) || (bmpdata.biCompression > 3)) {
-      data->postRead();
       return false;
     }
 
@@ -2878,17 +2741,13 @@ namespace lgfx
                    , datum
                    , w, h))
     {
-      data->postRead();
       return true;
     }
 
     argb8888_t *palette = nullptr;
     if (bpp <= 8) {
       palette = (argb8888_t*)alloca(sizeof(argb8888_t*) * (1 << bpp));
-      if (!palette) {
-        data->postRead();
-        return false;
-      }
+      if (!palette) { return false; }
       data->seek(bmpdata.biSize + 14);
       data->read((uint8_t*)palette, (1 << bpp)*sizeof(argb8888_t)); // load palette
     }
@@ -2928,7 +2787,6 @@ namespace lgfx
     int32_t dst_y32_add = (1u << FP_SCALE) * zoom_y;
     if (bmpdata.biHeight > 0) dst_y32_add = - dst_y32_add;
 
-    data->postRead();
     this->startWrite(!data->hasParent());
 
     float affine[6] = { zoom_x, 0.0f, (float)x, 0.0f, 1.0f, 0.0f };
@@ -2966,7 +2824,6 @@ namespace lgfx
     info.end();
 
     this->endWrite();
-    data->preRead();
 
     return true;
   }
@@ -3047,7 +2904,7 @@ namespace lgfx
     lgfxJdec jpegdec;
 
     static constexpr uint16_t sz_pool = 3900;
-    uint8_t *pool = (uint8_t*)malloc(sz_pool);
+    uint8_t *pool = (uint8_t*)heap_alloc_dma(sz_pool);
     if (!pool)
     {
       // ESP_LOGW("LGFX", "jpeg memory alloc fail");
@@ -3059,7 +2916,7 @@ namespace lgfx
     if (jres != JDR_OK)
     {
       // ESP_LOGW("LGFX", "jpeg prepare error:%x", jres);
-      free(pool);
+      heap_free(pool);
       return false;
     }
 
@@ -3075,7 +2932,7 @@ namespace lgfx
                        , datum
                        , jpegdec.width, jpegdec.height))
     {
-      free(pool);
+      heap_free(pool);
       return false;
     }
 
@@ -3102,7 +2959,7 @@ namespace lgfx
     this->endWrite();
     drawinfo.data->preRead();
 
-    free(pool);
+    heap_free(pool);
 
     if (jres != JDR_OK) {
       // ESP_LOGW("LGFX", "jpeg decomp error:%x", jres);

@@ -89,11 +89,15 @@ namespace lgfx
   {
     // unmap fb file from memory
     munmap(_fbp, _screensize);
+    // reset the display mode
+    if (ioctl(_fbfd, FBIOPUT_VSCREENINFO, &_fix_info)) {
+        printf("Error re-setting variable information.\n");
+    }
     // close fb file    
     close(_fbfd);
 
     memset(&_fix_info, 0, sizeof(_fix_info));
-    memset(&_var_info, 0, sizeof(_var_info));
+    memset(&_var_info, 0, sizeof(_fix_info));
   }
 
   Panel_fb::Panel_fb(void) : Panel_Device(), _fbp(nullptr)
@@ -244,9 +248,9 @@ namespace lgfx
     uint_fast8_t rotation = _internal_rotation;
     if (rotation)
     {
-      if ((1u << rotation) & 0b10010110) { y = _height - (y + h); }
-      if (rotation & 2)                  { x = _width  - (x + w); }
-      if (rotation & 1) { std::swap(x, y);  std::swap(w, h); }
+      if ((1u << rotation) & 0b10010110) { y = _height - (y + 1); }
+      if (rotation & 2)                  { x = _width  - (x + 1); }
+      if (rotation & 1) { std::swap(x, y); }
     }
 
     for (size_t width = 0; width < w; width++)

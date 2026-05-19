@@ -18,14 +18,14 @@ Contributors:
 #if defined (ESP_PLATFORM)
 #include <sdkconfig.h>
 
-#if defined (CONFIG_IDF_TARGET_ESP32P4)
- #pragma GCC diagnostic push
- #pragma GCC diagnostic ignored "-Wattributes"
-#endif
-
 #include "Bus_SPI.hpp"
 
-#if defined ( CONFIG_IDF_TARGET_ESP32 ) || !defined ( CONFIG_IDF_TARGET )
+/// ESP32-S3をターゲットにした際にREG_SPI_BASEが定義されていなかったので応急処置 ;
+#if defined ( CONFIG_IDF_TARGET_ESP32S3 )
+ #if ( ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 3, 0) )
+  #define REG_SPI_BASE(i)   (DR_REG_SPI1_BASE + (((i)>1) ? (((i)* 0x1000) + 0x20000) : (((~(i)) & 1)* 0x1000 )))
+ #endif
+#elif defined ( CONFIG_IDF_TARGET_ESP32 ) || !defined ( CONFIG_IDF_TARGET )
  #define LGFX_SPIDMA_WORKAROUND
 #endif
 
@@ -61,62 +61,29 @@ Contributors:
    #include <esp32/rom/gpio.h>
 #else
    #include <rom/gpio.h> // dispatched by core
-#endif
+#endif   
 
 #ifndef SPI_PIN_REG
  #define SPI_PIN_REG SPI_MISC_REG
 #endif
 
 #if defined (SOC_GDMA_SUPPORTED)  // for C3/C6/S3
- #if __has_include(<soc/gdma_channel.h>)
-  #include <soc/gdma_channel.h>
- #elif __has_include(<hal/gdma_channel.h>)
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wattributes"
-  #include <hal/gdma_channel.h>
-  #pragma GCC diagnostic pop
- #endif
- #if __has_include(<soc/gdma_reg.h>)
-  #include <soc/gdma_reg.h>
- #elif __has_include(<soc/axi_dma_reg.h>) // ESP32P4
-  #include <soc/axi_dma_reg.h>
-  #include <esp_cache.h>
- #endif
- #if __has_include(<soc/gdma_struct.h>)
-  #include <soc/gdma_struct.h>
- #elif __has_include(<soc/axi_dma_struct.h>) // ESP32P4
-  #include <soc/axi_dma_struct.h>
- #endif
- #if defined AXI_DMA_OUT_LINK1_CH0_REG
-  #define DMA_OUT_LINK_CH0_REG       AXI_DMA_OUT_LINK1_CH0_REG
-  #define DMA_OUTFIFO_STATUS_CH0_REG AXI_DMA_OUTFIFO_STATUS_CH0_REG
-  #define DMA_OUTLINK_START_CH0      AXI_DMA_OUTLINK_START_CH0
-  #define DMA_OUTFIFO_EMPTY_CH0      AXI_DMA_OUTFIFO_L3_EMPTY_CH0
-  #define SIZE_OF_DMA_OUT_CH (sizeof(axi_dma_out_reg_t))
- #else
-  #if !defined DMA_OUT_LINK_CH0_REG
-   #define DMA_OUT_LINK_CH0_REG       GDMA_OUT_LINK_CH0_REG
-   #define DMA_OUTFIFO_STATUS_CH0_REG GDMA_OUTFIFO_STATUS_CH0_REG
-   #define DMA_OUTLINK_START_CH0      GDMA_OUTLINK_START_CH0
-   #if defined (GDMA_OUTFIFO_EMPTY_L3_CH0)
-    #define DMA_OUTFIFO_EMPTY_CH0      GDMA_OUTFIFO_EMPTY_L3_CH0
-   #else
-    #define DMA_OUTFIFO_EMPTY_CH0      GDMA_OUTFIFO_EMPTY_CH0
-   #endif
+ #include <soc/gdma_channel.h>
+ #include <soc/gdma_reg.h>
+ #include <soc/gdma_struct.h>
+ #if !defined DMA_OUT_LINK_CH0_REG
+  #define DMA_OUT_LINK_CH0_REG       GDMA_OUT_LINK_CH0_REG
+  #define DMA_OUTFIFO_STATUS_CH0_REG GDMA_OUTFIFO_STATUS_CH0_REG
+  #define DMA_OUTLINK_START_CH0      GDMA_OUTLINK_START_CH0
+  #if defined (GDMA_OUTFIFO_EMPTY_L3_CH0)
+   #define DMA_OUTFIFO_EMPTY_CH0      GDMA_OUTFIFO_EMPTY_L3_CH0
+  #else
+   #define DMA_OUTFIFO_EMPTY_CH0      GDMA_OUTFIFO_EMPTY_CH0
   #endif
-  #define SIZE_OF_DMA_OUT_CH (sizeof(GDMA.channel[0]))
  #endif
-#endif
-
-#if !defined(gpio_matrix_out) && defined(rom_gpio_matrix_out)
- #define gpio_matrix_out rom_gpio_matrix_out
 #endif
 
 #include "common.hpp"
-
-#if defined (CONFIG_IDF_TARGET_ESP32P4)
- #pragma GCC diagnostic pop
-#endif
 
 #include <algorithm>
 
@@ -125,11 +92,6 @@ namespace lgfx
  inline namespace v1
  {
 //----------------------------------------------------------------------------
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-  static __attribute__ ((always_inline)) inline void writereg(uint32_t addr, uint32_t value) { *(volatile uint32_t*)addr = value; }
-#pragma GCC diagnostic pop
 
   void Bus_SPI::config(const config_t& cfg)
   {
@@ -166,13 +128,6 @@ namespace lgfx
     auto spi_mode = cfg.spi_mode;
     _user_reg = (spi_mode == 1 || spi_mode == 2) ? SPI_CK_OUT_EDGE | SPI_USR_MOSI : SPI_USR_MOSI;
 //ESP_LOGI("LGFX","Bus_SPI::config  spi_port:%d  dc:%0d %02x", spi_port, _cfg.pin_dc, _mask_reg_dc);
-
-#if defined LGFX_USE_QSPI
-    if( _cfg.pin_io0 != -1 && _cfg.pin_io1 != -1 && _cfg.pin_io2 != -1 && _cfg.pin_io3 != -1 )
-    {
-      _is_quad_spi = true;
-    }
-#endif
   }
 
   bool Bus_SPI::init(void)
@@ -187,13 +142,7 @@ namespace lgfx
     dma_ch = dma_ch ? SPI_DMA_CH_AUTO : SPI_DMA_DISABLED;
  #endif
 #endif
-
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi )
-      _inited = spi::initQuad(_cfg.spi_host, _cfg.pin_sclk, _cfg.pin_io0, _cfg.pin_io1, _cfg.pin_io2, _cfg.pin_io3, dma_ch).has_value();
-    else
-#endif
-      _inited = spi::init(_cfg.spi_host, _cfg.pin_sclk, _cfg.pin_miso, _cfg.pin_mosi, dma_ch).has_value();
+    _inited = spi::init(_cfg.spi_host, _cfg.pin_sclk, _cfg.pin_miso, _cfg.pin_mosi, dma_ch).has_value();
 
 #if defined ( SOC_GDMA_SUPPORTED )
     // 割当られたDMAチャネル番号を取得する
@@ -208,11 +157,8 @@ namespace lgfx
 
     if (assigned_dma_ch >= 0)
     { // DMAチャンネルが特定できたらそれを使用する;
-      _spi_dma_out_link_reg  = reg(DMA_OUT_LINK_CH0_REG       + assigned_dma_ch * SIZE_OF_DMA_OUT_CH);
-      _spi_dma_outstatus_reg = reg(DMA_OUTFIFO_STATUS_CH0_REG + assigned_dma_ch * SIZE_OF_DMA_OUT_CH);
-      #if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-      _spi_dma_out_link2_reg = reg(AXI_DMA_OUT_LINK2_CH0_REG  + assigned_dma_ch * SIZE_OF_DMA_OUT_CH);
-      #endif
+      _spi_dma_out_link_reg  = reg(DMA_OUT_LINK_CH0_REG       + assigned_dma_ch * sizeof(GDMA.channel[0]));
+      _spi_dma_outstatus_reg = reg(DMA_OUTFIFO_STATUS_CH0_REG + assigned_dma_ch * sizeof(GDMA.channel[0]));
     }
 #elif defined ( CONFIG_IDF_TARGET_ESP32 ) || !defined ( CONFIG_IDF_TARGET )
 
@@ -230,11 +176,7 @@ namespace lgfx
   {
     if (pin >= GPIO_NUM_MAX) return;
     gpio_reset_pin( (gpio_num_t)pin);
-#if defined (ESP_IDF_VERSION_VAL) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
-    rom_gpio_matrix_out((gpio_num_t)pin, SIG_GPIO_OUT_IDX, 0, 0);
-#else
     gpio_matrix_out((gpio_num_t)pin, SIG_GPIO_OUT_IDX, 0, 0);
-#endif
     // gpio_matrix_in には、ArduinoESP32 v1.0.x系では重大なバグがある。(無関係なピンに対して設定変更が行われることがある)
     // gpio_matrix_in( (gpio_num_t)pin, 0x100, 0   );
   }
@@ -246,23 +188,9 @@ namespace lgfx
     _inited = false;
     spi::release(_cfg.spi_host);
     gpio_reset(_cfg.pin_dc  );
-
-#if defined LGFX_USE_QSPI
-    if(_is_quad_spi)
-    {
-      gpio_reset(_cfg.pin_io0);
-      gpio_reset(_cfg.pin_io1);
-      gpio_reset(_cfg.pin_io2);
-      gpio_reset(_cfg.pin_io3);
-    }
-    else
-#endif
-    {
-      gpio_reset(_cfg.pin_mosi);
-      gpio_reset(_cfg.pin_miso);
-      gpio_reset(_cfg.pin_sclk);
-    }
-
+    gpio_reset(_cfg.pin_mosi);
+    gpio_reset(_cfg.pin_miso);
+    gpio_reset(_cfg.pin_sclk);
   }
 
   void Bus_SPI::beginTransaction(void)
@@ -281,35 +209,15 @@ namespace lgfx
     }
 
     auto spi_mode = _cfg.spi_mode;
-    uint32_t pin = (spi_mode & 2) ? SPI_CK_IDLE_EDGE : 0;
-    pin = pin
-#if defined ( SPI_CS0_DIS )
-            | SPI_CS0_DIS
-#endif
-#if defined ( SPI_CS1_DIS )
-            | SPI_CS1_DIS
-#endif
-#if defined ( SPI_CS2_DIS )
-            | SPI_CS2_DIS
-#endif
-#if defined ( SPI_CS3_DIS )
-            | SPI_CS3_DIS
-#endif
-#if defined ( SPI_CS4_DIS )
-            | SPI_CS4_DIS
-#endif
-#if defined ( SPI_CS5_DIS )
-            | SPI_CS5_DIS
-#endif
-    ;
+    uint32_t pin  = (spi_mode & 2) ? SPI_CK_IDLE_EDGE : 0;
 
     if (_cfg.use_lock) spi::beginTransaction(_cfg.spi_host);
 
     *_spi_user_reg = _user_reg;
     auto spi_port = _spi_port;
     (void)spi_port;
-    writereg(SPI_PIN_REG(spi_port), pin);
-    writereg(SPI_CLOCK_REG(spi_port), clkdiv_write);
+    *reg(SPI_PIN_REG(spi_port)) = pin;
+    *reg(SPI_CLOCK_REG(spi_port)) = clkdiv_write;
 #if defined ( SPI_UPDATE )
     *_spi_cmd_reg = SPI_UPDATE;
 #endif
@@ -347,13 +255,6 @@ namespace lgfx
     auto spi_cmd_reg = _spi_cmd_reg;
     auto gpio_reg_dc = _gpio_reg_dc[0];
     auto mask_reg_dc = _mask_reg_dc;
-
-#if defined LGFX_USE_QSPI
-    // reg for sending data in 1-bit mode
-    auto qspi_user_reg = _spi_user_reg;
-    uint32_t qspi_user = (*qspi_user_reg & (~SPI_FWRITE_QUAD));
-#endif
-
 #if !defined ( CONFIG_IDF_TARGET ) || defined ( CONFIG_IDF_TARGET_ESP32 )
     while (*spi_cmd_reg & SPI_USR) {}    // wait SPI
 #else
@@ -368,11 +269,6 @@ namespace lgfx
     {
       while (*spi_cmd_reg & SPI_USR) {}    // wait SPI
     }
-#endif
-
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-      *qspi_user_reg = qspi_user;
 #endif
     *spi_mosi_dlen_reg = bit_length;   // set bitlength
     *spi_w0_reg = data;                // set data
@@ -390,13 +286,6 @@ namespace lgfx
     auto spi_cmd_reg = _spi_cmd_reg;
     auto gpio_reg_dc = _gpio_reg_dc[1];
     auto mask_reg_dc = _mask_reg_dc;
-
-#if defined LGFX_USE_QSPI
-    // reg for sending data in 4-bit mode
-    auto qspi_user_reg = _spi_user_reg;
-    uint32_t qspi_user = (*qspi_user_reg | SPI_FWRITE_QUAD);
-#endif
-
 #if !defined ( CONFIG_IDF_TARGET ) || defined ( CONFIG_IDF_TARGET_ESP32 )
     while (*spi_cmd_reg & SPI_USR) {}    // wait SPI
 #else
@@ -412,10 +301,6 @@ namespace lgfx
       while (*spi_cmd_reg & SPI_USR) {}    // wait SPI
     }
 #endif
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-      *qspi_user_reg = qspi_user;
-#endif
     *spi_mosi_dlen_reg = bit_length;   // set bitlength
     *spi_w0_reg = data;                // set data
     *gpio_reg_dc = mask_reg_dc;        // D/C
@@ -429,13 +314,6 @@ namespace lgfx
     auto spi_cmd_reg = _spi_cmd_reg;
     auto gpio_reg_dc = _gpio_reg_dc[1];
     auto mask_reg_dc = _mask_reg_dc;
-
-#if defined LGFX_USE_QSPI
-    // reg for sending data in 4-bit mode
-    auto qspi_user_reg = _spi_user_reg;
-    uint32_t qspi_user = (_user_reg & ~(SPI_USR_MISO | SPI_DOUTDIN | SPI_SIO)) | SPI_USR_MOSI | SPI_FWRITE_QUAD;
-#endif
-
 #if defined ( CONFIG_IDF_TARGET ) && !defined ( CONFIG_IDF_TARGET_ESP32 )
     auto dma = _clear_dma_reg;
     if (dma) { _clear_dma_reg = nullptr; }
@@ -446,10 +324,6 @@ namespace lgfx
       while (*spi_cmd_reg & SPI_USR);    // wait SPI
 #if defined ( CONFIG_IDF_TARGET ) && !defined ( CONFIG_IDF_TARGET_ESP32 )
       if (dma) { *dma = 0; }
-#endif
-#if defined LGFX_USE_QSPI
-      if( _is_quad_spi)
-        *qspi_user_reg = qspi_user;
 #endif
       *gpio_reg_dc = mask_reg_dc;        // D/C high (data)
       *spi_mosi_dlen_reg = bit_length;   // set bitlength
@@ -481,10 +355,6 @@ namespace lgfx
     while (*spi_cmd_reg & SPI_USR) {}  // wait SPI
 #if defined ( CONFIG_IDF_TARGET ) && !defined ( CONFIG_IDF_TARGET_ESP32 )
     if (dma) { *dma = 0; }
-#endif
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-      *qspi_user_reg = qspi_user;
 #endif
     *gpio_reg_dc = mask_reg_dc;      // D/C high (data)
     *spi_mosi_dlen_reg = len;
@@ -542,17 +412,6 @@ namespace lgfx
 
   void Bus_SPI::writePixels(pixelcopy_t* param, uint32_t length)
   {
-
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-    {
-      // reg for sending data in 4-bit mode
-      auto qspi_user_reg = _spi_user_reg;
-      uint32_t qspi_user = (_user_reg & ~(SPI_USR_MISO | SPI_DOUTDIN | SPI_SIO)) | SPI_USR_MOSI | SPI_FWRITE_QUAD;
-      *qspi_user_reg = qspi_user;
-    }
-#endif
-
     const uint8_t bytes = param->dst_bits >> 3;
     if (_cfg.dma_channel)
     {
@@ -657,16 +516,6 @@ namespace lgfx
 
   void Bus_SPI::writeBytes(const uint8_t* data, uint32_t length, bool dc, bool use_dma)
   {
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-    {
-      // reg for sending data in 4-bit mode
-      auto qspi_user_reg = _spi_user_reg;
-      uint32_t qspi_user = (_user_reg & ~(SPI_USR_MISO | SPI_DOUTDIN | SPI_SIO)) | SPI_USR_MOSI | SPI_FWRITE_QUAD;
-      *qspi_user_reg = qspi_user;
-    }
-#endif
-
     if (length <= 64)
     {
       auto spi_w0_reg = _spi_w0_reg;
@@ -674,14 +523,7 @@ namespace lgfx
       length <<= 3;
       dc_control(dc);
       set_write_len(length);
-#if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-// P4のペリフェラルレジスタへのmemcpyはうまく動作しないので処理を分岐する
-      for (int i = 0; i < aligned_len >> 2; ++i) {
-        spi_w0_reg[i] = ((uint32_t*)data)[i];
-      }
-#else
       memcpy((void*)spi_w0_reg, data, aligned_len);
-#endif
       exec_spi();
       return;
     }
@@ -700,28 +542,15 @@ namespace lgfx
       if (use_dma)
       {
         auto spi_dma_out_link_reg = _spi_dma_out_link_reg;
-        #if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-        auto spi_dma_out_link2_reg = _spi_dma_out_link2_reg;
-        #endif
         auto cmd = _spi_cmd_reg;
         while (*cmd & SPI_USR) {}
         *spi_dma_out_link_reg = 0;
         _setup_dma_desc_links(data, length);
-
-        #if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-        esp_cache_msync((void*)data, sizeof(uint8_t) * length, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
-        esp_cache_msync(_dmadesc, sizeof(lldesc_t) * _dmadesc_size, ESP_CACHE_MSYNC_FLAG_DIR_C2M | ESP_CACHE_MSYNC_FLAG_UNALIGNED);
-        #endif
 #if defined ( SOC_GDMA_SUPPORTED )
         auto dma = reg(SPI_DMA_CONF_REG(_spi_port));
         *dma = 0; /// Clear previous transfer
         uint32_t len = ((length - 1) & ((SPI_MS_DATA_BITLEN)>>3)) + 1;
-        #if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-        *spi_dma_out_link2_reg = ((uint32_t)(_dmadesc));
-        *spi_dma_out_link_reg = DMA_OUTLINK_START_CH0 ;
-        #else
         *spi_dma_out_link_reg = DMA_OUTLINK_START_CH0 | ((int)(&_dmadesc[0]) & 0xFFFFF);
-        #endif
         *dma = SPI_DMA_TX_ENA;
         _clear_dma_reg = dma;
 #else
@@ -764,7 +593,6 @@ namespace lgfx
           goto label_start;
           do
           {
-            vTaskDelay(1 / portTICK_PERIOD_MS);
             while (*cmd & SPI_USR) {}
 label_start:
             exec_spi();
@@ -788,10 +616,7 @@ label_start:
     dc_control(dc);
     set_write_len(len << 3);
 
-    for (int i = 0; i < (len + 3) >> 2; ++i) {
-      spi_w0_reg[i] = regbuf[i];
-    }
-
+    memcpy((void*)spi_w0_reg, regbuf, (len + 3) & (~3));
     exec_spi();
     if (0 == (length -= len)) return;
 
@@ -799,10 +624,7 @@ label_start:
     memcpy(regbuf, data, limit);
     wait_spi();
     set_write_len(limit << 3);
-    for (int i = 0; i < limit >> 2; ++i) {
-      spi_w0_reg[i] = regbuf[i];
-    }
-
+    memcpy((void*)spi_w0_reg, regbuf, limit);
     exec_spi();
     if (0 == (length -= limit)) return;
 
@@ -811,9 +633,7 @@ label_start:
       data += limit;
       memcpy(regbuf, data, limit);
       wait_spi();
-      for (int i = 0; i < limit >> 2; ++i) {
-        spi_w0_reg[i] = regbuf[i];
-      }
+      memcpy((void*)spi_w0_reg, regbuf, limit);
       exec_spi();
     } while (0 != (length -= limit));
 
@@ -824,10 +644,6 @@ label_start:
     uint32_t highpart = ((length - 1) & limit) >> 2; // 8 or 0
 
     uint32_t user_reg = _user_reg;
-
-    if( _is_quad_spi)
-      user_reg = user_reg | SPI_FWRITE_QUAD;
-
     dc_control(dc);
     set_write_len(len << 3);
 
@@ -904,16 +720,6 @@ label_start:
   {
     if (0 == _dma_queue_size) return;
 
-#if defined LGFX_USE_QSPI
-    if( _is_quad_spi)
-    {
-      // reg for sending data in 4-bit mode
-      auto qspi_user_reg = _spi_user_reg;
-      uint32_t qspi_user = (_user_reg & ~(SPI_USR_MISO | SPI_DOUTDIN | SPI_SIO)) | SPI_USR_MOSI | SPI_FWRITE_QUAD;
-      *qspi_user_reg = qspi_user;
-    }
-#endif
-
     int index = _dma_queue_size - 1;
     _dma_queue_size = 0;
     _dma_queue[index].eof = 1;
@@ -930,12 +736,7 @@ label_start:
     *_spi_dma_out_link_reg = 0;
 
 #if defined ( SOC_GDMA_SUPPORTED )
-    #if defined ( CONFIG_IDF_TARGET_ESP32P4 )
-    *_spi_dma_out_link2_reg = ((uint32_t)(_dmadesc));
-    *_spi_dma_out_link_reg = DMA_OUTLINK_START_CH0;
-    #else
     *_spi_dma_out_link_reg = DMA_OUTLINK_START_CH0 | ((int)(&_dmadesc[0]) & 0xFFFFF);
-    #endif
     auto dma = reg(SPI_DMA_CONF_REG(_spi_port));
     *dma = SPI_DMA_TX_ENA;
     _clear_dma_reg = dma;
@@ -1016,8 +817,8 @@ label_start:
                         | (_cfg.spi_3wire ? SPI_SIO : 0);
     dc_control(true);
     *_spi_user_reg = user;
-    writereg(SPI_PIN_REG(_spi_port), pin);
-    writereg(SPI_CLOCK_REG(_spi_port), _clkdiv_read);
+    *reg(SPI_PIN_REG(_spi_port)) = pin;
+    *reg(SPI_CLOCK_REG(_spi_port)) = _clkdiv_read;
 #if defined ( SPI_UPDATE )
     *_spi_cmd_reg = SPI_UPDATE;
 #endif
@@ -1027,8 +828,8 @@ label_start:
   {
     uint32_t pin = (_cfg.spi_mode & 2) ? SPI_CK_IDLE_EDGE : 0;
     *_spi_user_reg = _user_reg;
-    writereg(SPI_PIN_REG(_spi_port), pin);
-    writereg(SPI_CLOCK_REG(_spi_port), _clkdiv_write);
+    *reg(SPI_PIN_REG(_spi_port)) = pin;
+    *reg(SPI_CLOCK_REG(_spi_port)) = _clkdiv_write;
 #if defined ( SPI_UPDATE )
     *_spi_cmd_reg = SPI_UPDATE;
 #endif
@@ -1218,19 +1019,8 @@ label_start:
     {
       periph_module_reset( PERIPH_SPI3_DMA_MODULE );
     }
-#elif defined( CONFIG_IDF_TARGET_ESP32 ) || !defined( CONFIG_IDF_TARGET )
- #if defined (PERIPH_SPI_DMA_MODULE)
+#else
     periph_module_reset( PERIPH_SPI_DMA_MODULE );
- #elif defined (PERIPH_HSPI_MODULE) && defined (PERIPH_VSPI_MODULE)
-    if (_cfg.spi_host == SPI2_HOST)
-    {
-      periph_module_reset( PERIPH_HSPI_MODULE );
-    }
-    else
-    {
-      periph_module_reset( PERIPH_VSPI_MODULE );
-    }
- #endif
 #endif
   }
 

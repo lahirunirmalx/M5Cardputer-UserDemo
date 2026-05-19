@@ -50,27 +50,13 @@ Contributors:
   #include "esp32s3/Bus_Parallel8.hpp"
   #include "esp32s3/Bus_Parallel16.hpp"
 
- #elif defined  (CONFIG_IDF_TARGET_ESP32P4)
-
-  #include "esp32/Light_PWM.hpp"
-  #include "esp32/Bus_SPI.hpp"
-  #include "esp32/Bus_I2C.hpp"
-  #include "esp32p4/Bus_DSI.hpp"
-  #include "esp32/Bus_Parallel8.hpp"
-  #include "esp32/Panel_CVBS.hpp"
-
- #elif defined (CONFIG_IDF_TARGET_ESP32H2)
-
-  #include "esp32/Light_PWM.hpp"
-  #include "esp32/Bus_SPI.hpp"
-  #include "esp32/Bus_I2C.hpp"
-
  #else
 
   #include "esp32/Light_PWM.hpp"
   #include "esp32/Bus_SPI.hpp"
   #include "esp32/Bus_I2C.hpp"
   #include "esp32/Bus_Parallel8.hpp"
+  #include "esp32/Panel_CVBS.hpp"
 
  #endif
 
@@ -97,7 +83,7 @@ Contributors:
 
 #include "spresense/Bus_SPI.hpp"
 
-#elif defined (ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_RP2040) || defined(USE_PICO_SDK)
+#elif defined (ARDUINO_ARCH_MBED_RP2040) || defined(ARDUINO_ARCH_RP2040)
 
 #include "rp2040/Light_PWM.hpp"
 #include "rp2040/Bus_I2C.hpp"
@@ -107,7 +93,7 @@ Contributors:
 
 #include "arduino_default/Bus_SPI.hpp"
 
-#elif (__has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>)) && !defined(LGFX_LINUX_FB)
+#elif __has_include(<SDL2/SDL.h>) || __has_include(<SDL.h>)
 
 #include "sdl/Bus_I2C.hpp"
 #include "sdl/Panel_sdl.hpp"

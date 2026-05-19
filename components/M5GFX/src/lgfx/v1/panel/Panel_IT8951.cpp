@@ -136,7 +136,7 @@ IT8951 Registers defines
     {
       return false;
     }
-    pinMode(_cfg.pin_busy, pin_mode_t::input_pullup);
+    pinMode(_cfg.pin_busy, pin_mode_t::input);
 
     _wait_busy();
 

@@ -25,12 +25,6 @@ Contributors:
 #include <rom/gpio.h>
 #include <hal/gpio_ll.h>
 
-#if defined (ESP_IDF_VERSION_VAL) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(6, 0, 0))
- #define LGFX_GPIO_PAD_SELECT(pin) rom_gpio_pad_select_gpio((gpio_num_t)(pin))
-#else
- #define LGFX_GPIO_PAD_SELECT(pin) gpio_pad_select_gpio((gpio_num_t)(pin))
-#endif
-
 namespace lgfx
 {
  inline namespace v1
@@ -70,9 +64,9 @@ namespace lgfx
 
     _init_pin();
 
-    LGFX_GPIO_PAD_SELECT(_cfg.pin_rd);
-    LGFX_GPIO_PAD_SELECT(_cfg.pin_wr);
-    LGFX_GPIO_PAD_SELECT(_cfg.pin_rs);
+    gpio_pad_select_gpio(_cfg.pin_rd);
+    gpio_pad_select_gpio(_cfg.pin_wr);
+    gpio_pad_select_gpio(_cfg.pin_rs);
 
     gpio_hi(_cfg.pin_rd);
     gpio_hi(_cfg.pin_wr);
@@ -91,7 +85,7 @@ namespace lgfx
     gpio_mode_t gpio_mode = read ? GPIO_MODE_INPUT : GPIO_MODE_OUTPUT;
     for (size_t i = 0; i < 8; ++i)
     {
-      LGFX_GPIO_PAD_SELECT(pins[i]);
+      gpio_pad_select_gpio(pins[i]);
       gpio_set_direction((gpio_num_t)pins[i], gpio_mode);
     }
   }

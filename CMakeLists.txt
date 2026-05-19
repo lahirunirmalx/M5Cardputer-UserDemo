@@ -13,5 +13,17 @@ include_directories(./main/apps/utils/usb_keyboard_wrap/hid_device)
 #include_directories(./components/NeoLED)
 
 
+# Exclude vendored sub-repos that may sit untracked inside components/ but are
+# not consumed by main/. The project ships its own forks of m5::Speaker_Class
+# and m5::Mic_Class under main/hal/{speaker,mic}/, and nothing #includes
+# mooncake_log or smooth_ui_toolkit. Letting IDF auto-discover them causes
+# spurious compile errors when their pinned versions disagree with the
+# tracked M5GFX in components/M5GFX/.
+set(EXCLUDE_COMPONENTS
+    M5Unified
+    mooncake_log
+    smooth_ui_toolkit
+)
+
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(cardputer)
