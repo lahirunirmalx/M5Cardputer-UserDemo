@@ -39,3 +39,7 @@
 #define FONT_REPL_WIDTH                     8
 #define FONT_REPL_HEIGHT                    16
 
+// Compact font for chip/footer/info text in dense UI panels (used by ports
+// from M5Cardputer dev-main: Files, Resistor, Sysinfo, etc.).
+#define FONT_SMALL                          &fonts::Font0
+

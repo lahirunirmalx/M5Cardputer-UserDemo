@@ -21,3 +21,4 @@
 #include "app_lora_chat/app_lora_chat.h"
 #include "app_gps/app_gps.h"
 #include "app_texteditor/app_texteditor.h"
+#include "app_files/app_files.h"
