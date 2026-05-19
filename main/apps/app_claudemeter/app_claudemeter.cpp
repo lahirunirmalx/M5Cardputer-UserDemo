@@ -22,6 +22,7 @@
 #include "../../hal/keyboard/keymap.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include "mdns.h"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -264,14 +265,81 @@ bool find_model_output_tokens(const char* json, const char* model_prefix, long& 
     return find_long_after(k, "\"outputTokens\"", out);
 }
 
+/* mDNS bootstrap. Idempotent — mdns_init() rejects re-entry, so the
+ * first caller wins and subsequent calls are cheap no-ops. Done lazily
+ * here (rather than in HAL init) so the rest of the firmware doesn't
+ * pay for mDNS unless ClaudeMeter actually runs. */
+static void ensure_mdns_inited()
+{
+    static bool inited = false;
+    if (inited) return;
+    if (mdns_init() == ESP_OK) {
+        mdns_hostname_set("cardputer");
+    }
+    inited = true;   /* even on failure — avoid retry spin */
+}
+
+/* If `url` has a host ending in `.local`, query mDNS for an A record and
+ * rewrite `url` in place to use the resolved IP. No-op for URLs whose
+ * hostname is already an IP literal or a non-`.local` name (Arduino's
+ * gethostbyname handles those).
+ *
+ * Buffer rewrite is bounded by `url_size`; if the IP + rest wouldn't fit,
+ * the URL is left untouched and the caller hits the same connection error
+ * it would have hit before. */
+static void resolve_mdns_in_url(char* url, size_t url_size)
+{
+    char* scheme_end = strstr(url, "://");
+    if (!scheme_end) return;
+    char* host_start = scheme_end + 3;
+
+    char* host_end = host_start;
+    while (*host_end && *host_end != ':' && *host_end != '/') host_end++;
+
+    size_t host_len = host_end - host_start;
+    if (host_len < 7) return;   /* shortest possible: "a.local" = 7 chars */
+    if (strncmp(host_end - 6, ".local", 6) != 0) return;
+
+    /* Bare hostname = without the ".local" suffix. mdns_query_a expects it
+     * that way: e.g. "ohrm-dev-lahiru" not "ohrm-dev-lahiru.local". */
+    char bare[64];
+    size_t bare_len = host_len - 6;
+    if (bare_len == 0 || bare_len >= sizeof(bare)) return;
+    memcpy(bare, host_start, bare_len);
+    bare[bare_len] = '\0';
+
+    ensure_mdns_inited();
+
+    esp_ip4_addr_t addr;
+    if (mdns_query_a(bare, 3000, &addr) != ESP_OK) return;   /* leave URL as-is */
+
+    char ip[16];
+    snprintf(ip, sizeof(ip), IPSTR, IP2STR(&addr));
+
+    size_t prefix_len = host_start - url;
+    size_t rest_len   = strlen(host_end);
+    size_t ip_len     = strlen(ip);
+    if (prefix_len + ip_len + rest_len + 1 > url_size) return;
+
+    memmove(url + prefix_len + ip_len, host_end, rest_len + 1);
+    memcpy(url + prefix_len, ip, ip_len);
+}
+
 /* Authenticated GET; returns HTTP code (or negative on transport error). */
 int http_get(const char* url, String& body)
 {
     if (WiFi.status() != WL_CONNECTED) return -1;
     if (!url || url[0] == '\0' || g_auth_header[0] == '\0') return -3;
+
+    /* Copy URL into a writable buffer and pre-resolve any `.local` host. */
+    char resolved[BASE_URL_MAX + 16];
+    strncpy(resolved, url, sizeof(resolved) - 1);
+    resolved[sizeof(resolved) - 1] = '\0';
+    resolve_mdns_in_url(resolved, sizeof(resolved));
+
     HTTPClient http;
     http.setTimeout(8000);
-    if (!http.begin(url)) return -2;
+    if (!http.begin(resolved)) return -2;
     http.addHeader("Authorization", g_auth_header);
     int code = http.GET();
     if (code == 200) body = http.getString();
@@ -300,7 +368,12 @@ bool do_fetch_into(Cache& out)
     int code = http_get(url, body);
     if (code != 200) {
         cache_lock();
-        if (code < 0) snprintf(out.last_err, sizeof(out.last_err), "net err");
+        /* Surface the actual HTTPClient transport-error code (negative
+         * values like -1 = CONNECTION_REFUSED, -4 = NOT_CONNECTED,
+         * -11 = READ_TIMEOUT) instead of a generic "net err" so the chip
+         * actually hints at WHY the fetch failed. Positive values are
+         * regular HTTP status codes. */
+        if (code < 0) snprintf(out.last_err, sizeof(out.last_err), "net %d", code);
         else          snprintf(out.last_err, sizeof(out.last_err), "HTTP %d", code);
         cache_unlock();
         return false;
