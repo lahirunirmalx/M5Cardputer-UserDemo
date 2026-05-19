@@ -141,9 +141,17 @@ For each app you bring over from dev-main:
 ## What's been ported so far
 
 - `50f55b8` chore: gitignore NVS credentials, build_alpha.zip, and `__pycache__`
-- (this file) docs: porting checklist
+- `88fdfac` docs: this porting checklist
+- `0f00e54` port: AppTextEditor (Notepad)
 
-Add to this list as commits land.
+## Deliberately skipped on this branch
+
+- **AppLed** (dev-main: NeoLED RGB control) — depends on the M5Cardputer-only
+  WS2812 NeoPixel + the `neoled` submodule driving it via `driver/rmt.h`.
+  Cardputer-ADV has no equivalent user-controllable RGB LED, so there is
+  nothing to drive. Skipping rather than committing a stub. If a future
+  CardputerADV revision adds an LED, revisit by writing a new app against
+  whatever HAL primitive exposes it (this would be a new app, not a port).
 
 ---
 
