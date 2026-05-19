@@ -60,6 +60,15 @@ fi
 # Source IDF
 . "${IDF_PATH}/export.sh" > /dev/null
 
+# 0) Component drift guard — vendored repos in components/ tend to wander
+# forward as IDEs/auto-fetch update them, and dev-main's app code targets
+# specific API surfaces (mooncake v1.x, pre-v2 rewrite; M5GFX/M5Unified
+# 0.2.0 pair). Snap everything back to the recorded SHAs before build.
+if [[ -x tools/pin_components.sh ]]; then
+    echo "==> Checking vendored component pins"
+    tools/pin_components.sh
+fi
+
 # 1) Build + flash app
 idf.py -p "${SERIAL_PORT}" flash -b 1500000
 

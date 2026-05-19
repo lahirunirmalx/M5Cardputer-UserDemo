@@ -139,6 +139,33 @@ Or use the `flash.sh` convenience script, which does build → app flash → NVS
 
 The script auto-detects `IDF_PATH` (`$HOME/esp/esp-idf` or `…-v4.4.6`) and the IDF Python venv, so a fresh checkout usually works without edits.
 
+### Pinned component versions
+
+`flash.sh` runs `tools/pin_components.sh` before build to snap the vendored
+component dirs back to commits known to build this codebase. The project's
+apps target a specific API surface (notably mooncake v1.x — *not* the
+post-Apr-2024 v2.x rewrite) and several components have drifted forward
+in upstream. Pins:
+
+| `components/<dir>`  | Pin                       | Why                                                                       |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------- |
+| `mooncake`          | `aa591b3` (2024-03-16)    | Last v1.x: `APP_BASE` / `mcAppGetDatabase` / `destroyApp` (gone in v2).   |
+| `mooncake_log`      | `967f61b` (2024-10-27)    | Last commit before tag logging used `std::string_view` (needs C++17).     |
+| `smooth_ui_toolkit` | `cd77951` (2024-12-10)    | Last commit before `animate_vector*` used `constexpr auto` (needs C++14+).|
+| `M5GFX`             | tag `0.2.0` (2024-11-08)  | Matched pair — later M5GFX missing `board_M5AtomS3R*` enums.              |
+| `M5Unified`         | tag `0.2.0` (2024-11-08)  | Matched pair — later M5Unified calls `init_without_reset(bool)`.          |
+| `arduino` + 2 more  | `.gitmodules` SHAs        | Restored via `git submodule update --init --recursive`.                   |
+
+Manual ops:
+
+```bash
+tools/pin_components.sh --check   # report drift only, no changes
+tools/pin_components.sh           # apply pins (idempotent)
+```
+
+If a component's tag/SHA is missing locally, `--check` will say so —
+run `git -C components/<dir> fetch --tags` to pull it down.
+
 ---
 
 ## Secrets & NVS provisioning
