@@ -153,6 +153,13 @@ Apps (one commit per app, in user-requested order):
 - `671994e` port: AppSysinfo — heap, WiFi, IP, RSSI, battery, CPU
 - `b04d7db` port: AppSnake — 25×10 grid game
 - `fd882e6` port: AppTicTacToe — vs simple AI or 2-player
+- port: AppClaudeMeter — usage dashboard with background polling. HTTP
+  layer rewritten on top of `esp_http_client` (bundled CA roots enabled
+  via `CONFIG_MBEDTLS_CERTIFICATE_BUNDLE` for HTTPS). NeoLED blink-on-
+  refresh dropped (no equivalent hardware); 880 Hz danger-severity beep
+  kept via `M5.Speaker` / `audio::play_tone()`, suppressible with M.
+  All 8 screens preserved, NVS namespace and key names unchanged so
+  existing dev-main provisioning carries over.
 
 Pixel layouts, key bindings, and behavior preserved; HAL/keyboard/audio
 adapted to CardputerADV idioms. All eight ports compile against
@@ -214,23 +221,15 @@ into half-broken stubs.
   on Bluedroid, or the NimBLE GAP equivalents, and re-port the
   payload tables verbatim.
 
-- **AppClaudeMeter** — combination of two skip reasons above: Arduino
-  `<WiFi.h>` + `<HTTPClient.h>` for the `/usage` API poll, plus
-  `#include "neoled.h"` for the per-refresh LED blink. To revive:
-  same as AppGemini for the HTTP rewrite, drop or replace the LED
-  blink, and store the bearer token + base URL under `Settings("claude")`
-  to match the CardputerADV NVS convention.
-
 ## Tally
 
 User-requested order: TextEditor, Led, FilesManager, Mp3, Calculator,
 Resistor, Gemini, Torch, Sysinfo, Snake, TicTacToe, Tvbgone, BlePair,
 ClaudeMeter — 14 apps.
 
-- Ported: 8 (TextEditor, FilesManager, Calculator, Resistor, Torch,
-  Sysinfo, Snake, TicTacToe).
-- Skipped: 6 (Led, Mp3, Gemini, Tvbgone, BlePair, ClaudeMeter) — see
-  rationale above.
+- Ported: 9 (TextEditor, FilesManager, Calculator, Resistor, Torch,
+  Sysinfo, Snake, TicTacToe, ClaudeMeter).
+- Skipped: 5 (Led, Mp3, Gemini, Tvbgone, BlePair) — see rationale above.
 
 ---
 

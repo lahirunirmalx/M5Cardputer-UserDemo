@@ -49,6 +49,7 @@ extern "C" void app_main(void)
     GetMooncake().installApp(std::make_unique<AppSysinfo>());
     GetMooncake().installApp(std::make_unique<AppSnake>());
     GetMooncake().installApp(std::make_unique<AppTicTacToe>());
+    GetMooncake().installApp(std::make_unique<AppClaudeMeter>());
     // GetMooncake().installApp(std::make_unique<AppDummy>());
 
     // Main loop
