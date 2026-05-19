@@ -24,10 +24,13 @@
 #     while this project builds at -std=gnu++11.
 #   - smooth_ui_toolkit cd77951 (Dec 2024) — last commit before
 #     animate_vector* gained constexpr auto returns (needs C++14+).
-#   - M5GFX 0.2.0 (Nov 8 2024) and M5Unified 0.2.0 (Nov 8 2024) —
-#     released same day, matched pair. M5Unified > 0.2.0 calls
-#     M5GFX::init_without_reset(bool) and references
-#     m5::board_t::board_M5AtomS3R*, neither of which exists at 0.2.0.
+#   - M5GFX 0.2.21 (May 15 2026) + M5Unified 0.2.15 (May 15 2026) —
+#     newest matched pair, released same day. **Compiles clean and the
+#     image flashes successfully; however a runtime LoadProhibited
+#     panic still occurs inside HalCardputer::_display_init() at the
+#     `_canvas->createSprite(206, 109)` line (see SESSION-NOTES.md).
+#     The 0.2.0 pair from Nov 8 2024 was tried first — it compiled
+#     and flashed but crashed identically.
 #
 # Usage:
 #   tools/pin_components.sh        # apply pins, idempotent

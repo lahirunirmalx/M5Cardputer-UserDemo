@@ -1,0 +1,102 @@
+name: Arduino Build
+
+on:
+  push:
+    paths:
+      - '**.ino'
+      - '**.cpp'
+      - '**.hpp'
+      - '**.h'
+      - '**.c'
+      - '.github/workflows/ArduinoBuild.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.board }} (${{ matrix.esp32_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ===================
+          # Espressif Board Manager
+          # ===================
+          # ESP32
+          - board: esp32:esp32:esp32
+            esp32_version: 2.0.17
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          - board: esp32:esp32:esp32
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ESP32-S3
+          - board: esp32:esp32:esp32s3
+            esp32_version: 2.0.17
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          - board: esp32:esp32:esp32s3
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ESP32-C3
+          - board: esp32:esp32:esp32c3
+            esp32_version: 2.0.17
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          - board: esp32:esp32:esp32c3
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ESP32-C6 (v3 only)
+          - board: esp32:esp32:esp32c6
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ESP32-P4 (v3 only)
+          - board: esp32:esp32:esp32p4
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ESP32-H2 (v3 only)
+          - board: esp32:esp32:esp32h2
+            esp32_version: 3.1.1
+            board_manager_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          # ===================
+          # M5Stack Board Manager
+          # ===================
+          # M5Core (ESP32)
+          - board: m5stack:esp32:m5stack_core
+            esp32_version: 2.1.4
+            board_manager_url: https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+          - board: m5stack:esp32:m5stack_core
+            esp32_version: 3.2.5
+            board_manager_url: https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+          # M5CoreS3 (ESP32-S3, v3 only)
+          - board: m5stack:esp32:m5stack_cores3
+            esp32_version: 3.2.5
+            board_manager_url: https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh -s 1.1.1
+          echo "$PWD/bin" >> $GITHUB_PATH
+
+      - name: Configure arduino-cli
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls ${{ matrix.board_manager_url }}
+
+      - name: Install board package
+        run: |
+          arduino-cli core update-index
+          # Extract core (package:architecture) from FQBN (package:architecture:board)
+          CORE=$(echo "${{ matrix.board }}" | cut -d: -f1,2)
+          arduino-cli core install "${CORE}@${{ matrix.esp32_version }}"
+
+      - name: Install library
+        run: |
+          mkdir -p "$HOME/Arduino/libraries"
+          ln -s "$GITHUB_WORKSPACE" "$HOME/Arduino/libraries/M5GFX"
+
+      - name: Build
+        run: |
+          arduino-cli compile --fqbn ${{ matrix.board }} examples/Test/build_test/build_test.ino
