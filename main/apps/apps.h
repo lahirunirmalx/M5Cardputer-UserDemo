@@ -22,3 +22,4 @@
 #include "app_gps/app_gps.h"
 #include "app_texteditor/app_texteditor.h"
 #include "app_files/app_files.h"
+#include "app_calculator/app_calculator.h"
