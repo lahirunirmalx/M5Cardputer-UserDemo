@@ -604,7 +604,7 @@ void AppClaudeMeter::draw_title_bar(const char* title)
     GetHAL().canvas.setCursor(3, TITLE_Y);
     GetHAL().canvas.print(title);
 
-    char pager[12];
+    char pager[32];
     snprintf(pager, sizeof(pager), "[%d/%d]", _screen + 1, (int)S_COUNT);
 
     GetHAL().canvas.setFont(FONT_SMALL);
@@ -686,7 +686,7 @@ void AppClaudeMeter::draw_summary()
     GetHAL().canvas.setFont(FONT_SMALL);
     GetHAL().canvas.setTextColor(COLOR_LABEL, THEME_COLOR_BG);
     long secs5 = seconds_until(c.reset_five_hour);
-    char rbuf[16];
+    char rbuf[32];
     if (secs5 < 0) {
         snprintf(rbuf, sizeof(rbuf), "reset: --");
     } else {
@@ -715,7 +715,7 @@ void AppClaudeMeter::draw_summary()
     draw_bar(bx7, by7, bw7, 8, p7, p7 < 0.f ? COLOR_BAR_BG : bar_color_for(p7));
 
     long secs7 = seconds_until(c.reset_seven_day);
-    char rb7[14];
+    char rb7[24];
     if (secs7 < 0) snprintf(rb7, sizeof(rb7), "--");
     else           fmt_compact(secs7, rb7, sizeof(rb7));
     GetHAL().canvas.setTextColor(COLOR_LABEL, THEME_COLOR_BG);
@@ -885,7 +885,7 @@ void AppClaudeMeter::draw_stats()
         char tm[16], ts[16];
         fmt_si_count(c.today_messages, tm, sizeof(tm));
         fmt_si_count(c.today_sessions, ts, sizeof(ts));
-        char combo[40];
+        char combo[64];
         snprintf(combo, sizeof(combo), "%s msg / %s ses", tm, ts);
         row(5, "Today", combo, COLOR_VALUE);
     } else {
